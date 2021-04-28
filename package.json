@@ -1,9 +1,12 @@
 {
-  "private": true,
-  "dependencies": {
-    "prettier": "^2.2.1"
-  },
-  "prettier": {
-    "singleQuote": true
-  }
+    "name": "level-up",
+    "version": "1.0.0",
+    "description": "",
+    "private": true,
+    "devDependencies": {
+        "prettier": "^2.2.1"
+    },
+    "dependencies": {
+        "three": "^0.128.0"
+    }
 }
