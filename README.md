@@ -1,4 +1,4 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://media1.tenor.com/images/d02d12805ec78a267e3af06523161221/tenor.gif" width="100%"></a></p>
+<p align="center"><a href="https://youtu.be/8coHwAm-LyI" target="_blank"><img src="https://media1.tenor.com/images/938582dc0c728dd274bbc56a49b886de/tenor.gif" width="75%"></a></p>
 
 # Project Title
 
@@ -10,7 +10,16 @@ Add the installation instructions.
 
 # Changelog
 
--   [#1 - Add a link to each pull request with a descriptive line.](#1)
+-   [#1 - Initial setup](https://github.com/felixgren/level-up/pull/1)
+-   [#2 - Add a link to each pull request with a descriptive line.](#2)
+-   [#3 - Add a link to each pull request with a descriptive line.](#3)
+-   [#4 - Add a link to each pull request with a descriptive line.](#4)
+-   [#5 - Add a link to each pull request with a descriptive line.](#5)
+-   [#6 - Add a link to each pull request with a descriptive line.](#6)
+-   [#7 - Add a link to each pull request with a descriptive line.](#7)
+-   [#8 - Add a link to each pull request with a descriptive line.](#8)
+-   [#9 - Add a link to each pull request with a descriptive line.](#9)
+-   [#10 - Add a link to each pull request with a descriptive line.](#10)
 
 # Code Review
 
