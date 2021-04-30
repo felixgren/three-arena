@@ -1,4 +1,4 @@
-INSERT MANDATORY GIF
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://media1.tenor.com/images/d02d12805ec78a267e3af06523161221/tenor.gif" width="100%"></a></p>
 
 # Project Title
 
@@ -10,7 +10,7 @@ Add the installation instructions.
 
 # Changelog
 
-- [#1 - Add a link to each pull request with a descriptive line.](#1)
+-   [#1 - Add a link to each pull request with a descriptive line.](#1)
 
 # Code Review
 
