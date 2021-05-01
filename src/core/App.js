@@ -5,14 +5,13 @@ import * as dat from 'dat.gui';
 // Experimenting with classes
 export default class App {
     constructor() {
-        this.camera = null;
-        this.scene = null;
-        this.renderer = null;
-
         this.sizes = {
             width: window.innerWidth,
             height: window.innerHeight,
         };
+
+        this.startAnimation = startAnimation.bind(this);
+        this.stopAnimation = stopAnimation.bind(this);
 
         this.init();
     }
@@ -20,7 +19,18 @@ export default class App {
     init() {
         this.bestInit();
         this.objects();
-        this.animate();
+
+        this.startAnimation();
+
+        // setTimeout(() => {
+        //     this.stopAnimation();
+        //     console.log('stop animation');
+        // }, 2500);
+
+        // setTimeout(() => {
+        //     this.startAnimation();
+        //     console.log('resume animation');
+        // }, 5000);
     }
 
     bestInit() {
@@ -36,7 +46,6 @@ export default class App {
             100
         );
         this.camera.position.set(0, 0, 2);
-        this.scene.add(this.camera);
 
         this.controls = new OrbitControls(this.camera, this.canvas);
         this.controls.enableDamping = true;
@@ -88,6 +97,19 @@ export default class App {
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         });
 
+        let toggle = false;
+        window.addEventListener('click', () => {
+            toggle = !toggle;
+
+            if (toggle) {
+                console.log('I WANNA STOP NOW');
+                this.stopAnimation();
+            } else {
+                console.log('I WANNA DANCE');
+                this.startAnimation();
+            }
+        });
+
         // Renderer
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
@@ -96,24 +118,39 @@ export default class App {
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     }
 
-    animate() {
-        const tick = () => {
-            // Call tick again on the next frame
-            window.requestAnimationFrame(tick);
+    tick() {
+        // Call tick again on the next frame
 
-            const elapsedTime = this.clock.getElapsedTime();
-            const delta = this.clock.getDelta();
+        // https://github.com/mrdoob/three.js/issues/5696
+        // clock should be refactored into timer
+        // https://github.com/mrdoob/three.js/pull/17912
+        // const elapsedTime = this.clock.getElapsedTime();
 
-            // Update objects
-            this.sphere.rotation.y = 0.5 * elapsedTime;
+        const delta = this.clock.getDelta();
 
-            // Update Orbital Controls
-            this.controls.update();
+        // Update objects
+        this.sphere.rotation.y += 0.5 * delta;
 
-            // Render
-            this.renderer.render(this.scene, this.camera);
-        };
+        // Update Orbital Controls
+        this.controls.update();
 
-        tick();
+        // Render
+        this.renderer.render(this.scene, this.camera);
     }
+}
+
+function startAnimation() {
+    this.animRequest = requestAnimationFrame(this.startAnimation);
+    this.tick();
+    // console.log(this.clock.running);
+    if (!this.clock.running) {
+        // booo start sets time to 0 theres no resume it suxxx
+        this.clock.start();
+    }
+}
+
+function stopAnimation() {
+    cancelAnimationFrame(this.animRequest);
+    // console.log(this.clock.getElapsedTime());
+    this.clock.stop();
 }
