@@ -11,23 +11,28 @@ const canvas = document.querySelector('canvas.webgl');
 const gui = new dat.GUI();
 const clock = new THREE.Clock();
 
-// fps
+// FPS, render time, drawcalls
 const stats = new Stats();
-stats.showPanel(0, 1);
+let drawCallPanel = stats.addPanel(
+    new Stats.Panel('drawcalls', '#ff8', '#221')
+);
+stats.showPanel(0, 1, 3);
 document.body.appendChild(stats.domElement);
 body.appendChild(stats.domElement);
 
 const scene = new THREE.Scene();
+
+// Camera
 const camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
     0.1,
     100
 );
-
 camera.position.set(0, 0, 2);
 scene.add(camera);
 
+// Controls
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 
@@ -41,7 +46,7 @@ scene.background = new THREE.CubeTextureLoader().load([
     'skybox/bluecloud_bk.jpg',
 ]);
 
-// Models
+// Model
 const gltfLoader = new GLTFLoader().setPath('models/');
 gltfLoader.load('smile.glb', (gltf) => {
     gltf.scene.traverse((model) => {
@@ -98,10 +103,6 @@ const helper = new THREE.CameraHelper(pointLight.shadow.camera);
 scene.add(helper);
 
 window.addEventListener('resize', () => {
-    // Update sizes
-    sizes.width = window.innerWidth;
-    sizes.height = window.innerHeight;
-
     // Update camera
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -122,6 +123,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+// time init
+let lastTime = performance.now();
+
 // Animate
 const tick = () => {
     // Call tick again on the next frame
@@ -140,6 +144,10 @@ const tick = () => {
 
     // Render
     renderer.render(scene, camera);
+
+    if (performance.now() - lastTime < 1000 / 1) return;
+    lastTime = performance.now();
+    drawCallPanel.update(renderer.info.render.calls);
 };
 
 tick();
