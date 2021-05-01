@@ -1,21 +1,63 @@
 import './style.css';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as dat from 'dat.gui';
+import Stats from 'three/examples/jsm/libs/stats.module';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 
-// Debug GUI
-const gui = new dat.GUI();
-
-// Canvas
+const body = document.querySelector('body');
 const canvas = document.querySelector('canvas.webgl');
+const gui = new dat.GUI();
+const clock = new THREE.Clock();
 
-// Scene
+// fps
+const stats = new Stats();
+stats.showPanel(0, 1);
+document.body.appendChild(stats.domElement);
+body.appendChild(stats.domElement);
+
 const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+);
+
+camera.position.set(0, 0, 2);
+scene.add(camera);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+
+// Skybox
+scene.background = new THREE.CubeTextureLoader().load([
+    'skybox/bluecloud_rt.jpg',
+    'skybox/bluecloud_lf.jpg',
+    'skybox/bluecloud_up.jpg',
+    'skybox/bluecloud_dn.jpg',
+    'skybox/bluecloud_ft.jpg',
+    'skybox/bluecloud_bk.jpg',
+]);
+
+// Models
+const gltfLoader = new GLTFLoader().setPath('models/');
+gltfLoader.load('smile.glb', (gltf) => {
+    gltf.scene.traverse((model) => {
+        model.castShadow = true;
+    });
+    gltf.scene.position.z = 1;
+
+    // gltf.scene.scale = 10;
+    scene.add(gltf.scene);
+});
 
 // Objects
 const geometry = new THREE.IcosahedronGeometry(1);
 const floorGeometry = new THREE.BoxGeometry(10, 0.5, 10);
 const wallGeometry = new THREE.BoxGeometry(10, 5, 0.5);
+
 // Materials
 const floorMaterial = new THREE.MeshPhongMaterial();
 floorMaterial.color = new THREE.Color(0xff111111);
@@ -55,45 +97,25 @@ scene.add(pointLightHelper2);
 const helper = new THREE.CameraHelper(pointLight.shadow.camera);
 scene.add(helper);
 
-// Sizes
-const sizes = {
-    width: window.innerWidth,
-    height: window.innerHeight,
-};
-
 window.addEventListener('resize', () => {
     // Update sizes
     sizes.width = window.innerWidth;
     sizes.height = window.innerHeight;
 
     // Update camera
-    camera.aspect = sizes.width / sizes.height;
+    camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
 
     // Update renderer
-    renderer.setSize(sizes.width, sizes.height);
+    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
-
-// Base camera
-const camera = new THREE.PerspectiveCamera(
-    75,
-    sizes.width / sizes.height,
-    0.1,
-    100
-);
-camera.position.set(0, 0, 2);
-scene.add(camera);
-
-// Controls
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
 
 // Renderer
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
 });
-renderer.setSize(sizes.width, sizes.height);
+renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 // Shadow renderer
@@ -101,22 +123,20 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 // Animate
-const clock = new THREE.Clock();
-
 const tick = () => {
     // Call tick again on the next frame
-    window.requestAnimationFrame(tick);
+    requestAnimationFrame(tick);
 
-    const elapsedTime = clock.getElapsedTime();
+    // const elapsedTime = clock.getElapsedTime();
+    const delta = clock.getDelta();
 
     // Update objects
-    sphere.rotation.y = 0.5 * elapsedTime;
-
-    // group.rotation.x += 0.005;
-    // group.rotation.y += 0.005;
+    sphere.rotation.y += 0.5 * delta;
 
     // Update Orbital Controls
     controls.update();
+
+    stats.update();
 
     // Render
     renderer.render(scene, camera);
