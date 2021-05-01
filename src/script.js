@@ -14,28 +14,46 @@ const scene = new THREE.Scene();
 
 // Objects
 const geometry = new THREE.IcosahedronGeometry(1);
-
+const floorGeometry = new THREE.BoxGeometry(10, 0.5, 10);
+const wallGeometry = new THREE.BoxGeometry(10, 5, 0.5);
 // Materials
+const floorMaterial = new THREE.MeshPhongMaterial();
+floorMaterial.color = new THREE.Color(0xff111111);
 const material = new THREE.MeshPhongMaterial();
-material.color = new THREE.Color(0xff0000);
+material.color = new THREE.Color(0xff109000);
 
 // Mesh
 const sphere = new THREE.Mesh(geometry, material);
+const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+const wall = new THREE.Mesh(wallGeometry, floorMaterial);
+
+floor.position.set(0, -3, 0);
+wall.position.set(0, -0.5, -5);
+
+sphere.castShadow = true; //default
+floor.receiveShadow = true; //default
+scene.add(wall);
+scene.add(floor);
 scene.add(sphere);
 
 // Lights
 const pointLight = new THREE.PointLight(0xffffff, 0.1);
 const pointLight2 = new THREE.PointLight(0xffffff, 0.1);
-pointLight.position.set(3, 2, 1);
+pointLight.castShadow = true;
+
+pointLight.position.set(3, 5, -1);
 pointLight2.position.set(-3, 2, 1);
 pointLight.power = 20;
-pointLight2.power = 10;
+pointLight2.power = 0;
 scene.add(pointLight, pointLight2);
 
 const pointLightHelper = new THREE.PointLightHelper(pointLight);
 const pointLightHelper2 = new THREE.PointLightHelper(pointLight2);
 scene.add(pointLightHelper);
 scene.add(pointLightHelper2);
+
+const helper = new THREE.CameraHelper(pointLight.shadow.camera);
+scene.add(helper);
 
 // Sizes
 const sizes = {
@@ -77,6 +95,10 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+// Shadow renderer
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 // Animate
 const clock = new THREE.Clock();
