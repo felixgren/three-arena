@@ -14,26 +14,11 @@ export default class App {
         this.stopAnimation = stopAnimation.bind(this);
 
         this.init();
+        this.objects();
+        this.startAnimation();
     }
 
     init() {
-        this.bestInit();
-        this.objects();
-
-        this.startAnimation();
-
-        // setTimeout(() => {
-        //     this.stopAnimation();
-        //     console.log('stop animation');
-        // }, 2500);
-
-        // setTimeout(() => {
-        //     this.startAnimation();
-        //     console.log('resume animation');
-        // }, 5000);
-    }
-
-    bestInit() {
         this.canvas = document.querySelector('canvas.webgl');
         this.gui = new dat.GUI();
         this.clock = new THREE.Clock();
