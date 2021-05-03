@@ -11,6 +11,8 @@ const canvas = document.querySelector('canvas.webgl');
 const gui = new dat.GUI();
 const clock = new THREE.Clock();
 
+const gravity = 50;
+
 // FPS, render time, drawcalls
 const stats = new Stats();
 let drawCallPanel = stats.addPanel(
@@ -30,11 +32,25 @@ const camera = new THREE.PerspectiveCamera(
     100
 );
 camera.position.set(0, 0, 2);
-scene.add(camera);
+// camera.rotation.set(0, 0, 90);
 
 // Controls
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
+// const controls = new OrbitControls(camera, canvas);
+// controls.enableDamping = true;
+
+// NEW FP Controls
+document.addEventListener('mousedown', () => {
+    console.log('hej');
+    document.body.requestPointerLock();
+});
+
+camera.rotation.order = 'YXZ';
+document.addEventListener('mousemove', (event) => {
+    if (document.pointerLockElement === document.body) {
+        camera.rotation.x -= event.movementY / 300;
+        camera.rotation.y -= event.movementX / 300;
+    }
+});
 
 // Skybox
 scene.background = new THREE.CubeTextureLoader().load([
@@ -138,7 +154,7 @@ const tick = () => {
     sphere.rotation.y += 0.5 * delta;
 
     // Update Orbital Controls
-    controls.update();
+    // controls.update();
 
     stats.update();
 
