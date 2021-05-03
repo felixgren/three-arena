@@ -32,7 +32,6 @@ const camera = new THREE.PerspectiveCamera(
     100
 );
 camera.position.set(0, 0, 2);
-// camera.rotation.set(0, 0, 90);
 
 // Controls
 // const controls = new OrbitControls(camera, canvas);
@@ -47,6 +46,13 @@ document.addEventListener('mousedown', () => {
 camera.rotation.order = 'YXZ';
 document.addEventListener('mousemove', (event) => {
     if (document.pointerLockElement === document.body) {
+        if (camera.rotation.x > 1.55) {
+            camera.rotation.x = 1.55;
+        }
+        if (camera.rotation.x < -1.55) {
+            camera.rotation.x = -1.55;
+        }
+
         camera.rotation.x -= event.movementY / 300;
         camera.rotation.y -= event.movementX / 300;
     }
