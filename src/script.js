@@ -36,6 +36,46 @@ scene.add(camera);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 
+const Key = {};
+const playerVelocity = new THREE.Vector3();
+
+// Movement Control
+document.addEventListener('keydown', (event) => {
+    Key[event.key] = true;
+});
+
+document.addEventListener('keyup', (event) => {
+    Key[event.key] = false;
+    // console.log(`RAISED ${event.code}`);
+});
+
+function playerControl() {
+    // console.log(Key['W']);
+    if (Key['w']) {
+        console.log('W');
+        camera.position.setX(0);
+        camera.position.setY(0);
+        camera.position.setZ(3);
+    }
+    if (Key['a']) {
+        console.log('A');
+        camera.position.setY(0);
+        camera.position.setX(3);
+        camera.position.setZ(3);
+    }
+    if (Key['s']) {
+        console.log('S');
+        camera.position.setX(0);
+        camera.position.setY(3);
+        camera.position.setZ(0);
+    }
+    if (Key['d']) {
+        console.log('D');
+        camera.position.setZ(5);
+        camera.position.setY(3);
+    }
+}
+
 // Skybox
 scene.background = new THREE.CubeTextureLoader().load([
     'skybox/bluecloud_rt.jpg',
@@ -130,6 +170,8 @@ let lastTime = performance.now();
 const tick = () => {
     // Call tick again on the next frame
     requestAnimationFrame(tick);
+
+    playerControl();
 
     // const elapsedTime = clock.getElapsedTime();
     const delta = clock.getDelta();
