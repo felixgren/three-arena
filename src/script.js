@@ -30,14 +30,9 @@ const camera = new THREE.PerspectiveCamera(
     100
 );
 camera.position.set(0, 0, 2);
-scene.add(camera);
-
-// Controls
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
+// scene.add(camera);
 
 const Key = {};
-const playerVelocity = new THREE.Vector3();
 
 // Movement Control
 document.addEventListener('keydown', (event) => {
@@ -46,28 +41,34 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('keyup', (event) => {
     Key[event.key] = false;
-    // console.log(`RAISED ${event.code}`);
 });
 
+const playerVelocity = new THREE.Vector3();
+const playerDirection = new THREE.Vector3();
+const upVector = new THREE.Vector3(0, 1, 0);
 function playerControl() {
-    // console.log(Key['W']);
     if (Key['w']) {
-        console.log('W');
-        camera.position.setX(0);
-        camera.position.setY(0);
-        camera.position.setZ(3);
+        // console.log('W');
+        // console.log(lookVector());
+        // playerVelocity.addScalar(0.1);
+        playerVelocity.add(lookVector().multiplyScalar(0.1));
+        console.log(lookVector());
     }
     if (Key['a']) {
         console.log('A');
-        camera.position.setY(0);
-        camera.position.setX(3);
-        camera.position.setZ(3);
+
+        // does not work but produce interesting strafe, could be used later?
+
+        // playerVelocity.add(crossVectors(upVector, lookVector()));
+        // console.log(crossVectors(upVector, lookVector()));
+        playerVelocity.crossVectors(upVector, lookVector()).normalize();
     }
     if (Key['s']) {
         console.log('S');
-        camera.position.setX(0);
-        camera.position.setY(3);
-        camera.position.setZ(0);
+        // camera.position.setX(0);
+        // camera.position.setY(3);
+        // camera.position.setZ(0);
+        playerVelocity.add(lookVector().negate().multiplyScalar(0.1));
     }
     if (Key['d']) {
         console.log('D');
@@ -75,6 +76,34 @@ function playerControl() {
         camera.position.setY(3);
     }
 }
+
+function lookVector() {
+    return camera.getWorldDirection(playerDirection);
+}
+
+function updateMovement() {
+    const deltaPosition = playerVelocity.clone();
+    camera.position.copy(deltaPosition);
+}
+
+// NEW FP Controls
+document.addEventListener('mousedown', () => {
+    document.body.requestPointerLock();
+});
+
+camera.rotation.order = 'YXZ';
+document.addEventListener('mousemove', (event) => {
+    if (document.pointerLockElement === document.body) {
+        // if (camera.rotation.x > 1.55) {
+        //     camera.rotation.x = 1.55;
+        // }
+        // if (camera.rotation.x < -1.55) {
+        //     camera.rotation.x = -1.55;
+        // }
+        camera.rotation.x -= event.movementY / 700;
+        camera.rotation.y -= event.movementX / 700;
+    }
+});
 
 // Skybox
 scene.background = new THREE.CubeTextureLoader().load([
@@ -85,6 +114,10 @@ scene.background = new THREE.CubeTextureLoader().load([
     'skybox/bluecloud_ft.jpg',
     'skybox/bluecloud_bk.jpg',
 ]);
+
+// Controls
+// const controls = new OrbitControls(camera, canvas);
+// controls.enableDamping = true;
 
 // Model
 const gltfLoader = new GLTFLoader().setPath('models/');
@@ -180,7 +213,9 @@ const tick = () => {
     sphere.rotation.y += 0.5 * delta;
 
     // Update Orbital Controls
-    controls.update();
+    // controls.update();
+
+    updateMovement();
 
     stats.update();
 
