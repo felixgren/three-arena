@@ -2,6 +2,8 @@ import './style.css';
 import * as THREE from 'three';
 import * as dat from 'dat.gui';
 import Stats from 'three/examples/jsm/libs/stats.module';
+import { Capsule } from 'three/examples/jsm/math/Capsule';
+import { Octree } from 'three/examples/jsm/math/Octree';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
@@ -27,7 +29,7 @@ const camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
     0.1,
-    100
+    1000
 );
 camera.position.set(0, 0, 2);
 // scene.add(camera);
@@ -43,12 +45,21 @@ document.addEventListener('keyup', (event) => {
     Key[event.key] = false;
 });
 
+// Vectors
 const playerVelocity = new THREE.Vector3();
 const playerDirection = new THREE.Vector3();
 const upVector = new THREE.Vector3(0, 1, 0);
+
+// https://wickedengine.net/2020/04/26/capsule-collision-detection/
+const playerCapsule = new Capsule(
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+    0.5
+);
+
+// Inputs
 function playerControl() {
     if (Key['w']) {
-        // console.log('W');
         // console.log(lookVector());
         // playerVelocity.addScalar(0.1);
         playerVelocity.add(lookVector().multiplyScalar(0.1));
@@ -56,7 +67,6 @@ function playerControl() {
     }
     if (Key['a']) {
         console.log('A');
-
         // does not work but produce interesting strafe, could be used later?
 
         // playerVelocity.add(crossVectors(upVector, lookVector()));
@@ -72,21 +82,30 @@ function playerControl() {
     }
     if (Key['d']) {
         console.log('D');
-        camera.position.setZ(5);
-        camera.position.setY(3);
+    }
+    if (Key[' ']) {
+        console.log('Spacebar');
+        playerVelocity.y = 10;
     }
 }
 
+// Input functions
 function lookVector() {
     return camera.getWorldDirection(playerDirection);
 }
 
 function updateMovement() {
-    const deltaPosition = playerVelocity.clone();
-    camera.position.copy(deltaPosition);
+    const deltaPosition = playerVelocity.clone().multiplyScalar(0.01);
+
+    // This can be used for movement without momentum
+    // camera.position.copy(deltaPosition);
+
+    // This is movement with momentum.
+    playerCapsule.translate(deltaPosition);
+    camera.position.copy(playerCapsule.end);
 }
 
-// NEW FP Controls
+// First person camera
 document.addEventListener('mousedown', () => {
     document.body.requestPointerLock();
 });
@@ -114,10 +133,6 @@ scene.background = new THREE.CubeTextureLoader().load([
     'skybox/bluecloud_ft.jpg',
     'skybox/bluecloud_bk.jpg',
 ]);
-
-// Controls
-// const controls = new OrbitControls(camera, canvas);
-// controls.enableDamping = true;
 
 // Model
 const gltfLoader = new GLTFLoader().setPath('models/');
@@ -175,6 +190,7 @@ scene.add(pointLightHelper2);
 const helper = new THREE.CameraHelper(pointLight.shadow.camera);
 scene.add(helper);
 
+// Resize
 window.addEventListener('resize', () => {
     // Update camera
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -199,6 +215,13 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // time init
 let lastTime = performance.now();
 
+let velocityStats = document.querySelector('.velocity-stats');
+let positionStats = document.querySelector('.position-stats');
+
+function roundStat(data) {
+    return Math.round(data * 100) / 100;
+}
+
 // Animate
 const tick = () => {
     // Call tick again on the next frame
@@ -212,15 +235,23 @@ const tick = () => {
     // Update objects
     sphere.rotation.y += 0.5 * delta;
 
-    // Update Orbital Controls
-    // controls.update();
-
     updateMovement();
 
     stats.update();
 
     // Render
     renderer.render(scene, camera);
+
+    // Stats
+    velocityStats.innerHTML = `
+    X: ${roundStat(playerVelocity.x)} <br> 
+    Y: ${roundStat(playerVelocity.y)} <br> 
+    Z: ${roundStat(playerVelocity.z)}`;
+
+    positionStats.innerHTML = `
+    X: ${roundStat(camera.position.x)} <br> 
+    Y: ${roundStat(camera.position.y)} <br> 
+    Z: ${roundStat(camera.position.z)}`;
 
     if (performance.now() - lastTime < 1000 / 1) return;
     lastTime = performance.now();
