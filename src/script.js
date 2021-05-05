@@ -58,34 +58,44 @@ const playerCapsule = new Capsule(
 );
 
 // Inputs
+let playerSpeed = 0.05;
 function playerControl() {
     if (Key['w']) {
         // console.log(lookVector());
-        // playerVelocity.addScalar(0.1);
-        playerVelocity.add(lookVector().multiplyScalar(0.1));
-        console.log(lookVector());
+        playerVelocity.add(lookVector().multiplyScalar(playerSpeed));
     }
     if (Key['a']) {
-        console.log('A');
-        // does not work but produce interesting strafe, could be used later?
-
-        // playerVelocity.add(crossVectors(upVector, lookVector()));
-        // console.log(crossVectors(upVector, lookVector()));
-        playerVelocity.crossVectors(upVector, lookVector()).normalize();
+        // console.log('A');
+        playerVelocity.add(
+            playerDirection.crossVectors(
+                upVector,
+                lookVector().multiplyScalar(playerSpeed)
+            )
+        );
     }
     if (Key['s']) {
-        console.log('S');
-        // camera.position.setX(0);
-        // camera.position.setY(3);
-        // camera.position.setZ(0);
-        playerVelocity.add(lookVector().negate().multiplyScalar(0.1));
+        // console.log('S');
+        playerVelocity.add(lookVector().negate().multiplyScalar(playerSpeed));
     }
     if (Key['d']) {
-        console.log('D');
+        // console.log('D');
+        playerVelocity.add(
+            playerDirection.crossVectors(
+                upVector,
+                lookVector().negate().multiplyScalar(playerSpeed)
+            )
+        );
     }
     if (Key[' ']) {
-        console.log('Spacebar');
-        playerVelocity.y = 10;
+        // console.log('Spacebar');
+        playerVelocity.y += playerSpeed;
+    }
+    if (Key['Control']) {
+        // console.log('CTRL');
+        playerVelocity.y -= playerSpeed;
+    }
+    if (Key['e']) {
+        playerVelocity.set(0, 0, 0);
     }
 }
 
@@ -224,13 +234,12 @@ function roundStat(data) {
 
 // Animate
 const tick = () => {
+    const delta = clock.getDelta();
+
     // Call tick again on the next frame
     requestAnimationFrame(tick);
 
     playerControl();
-
-    // const elapsedTime = clock.getElapsedTime();
-    const delta = clock.getDelta();
 
     // Update objects
     sphere.rotation.y += 0.5 * delta;
