@@ -10,8 +10,12 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 
 const body = document.querySelector('body');
 const canvas = document.querySelector('canvas.webgl');
+const pauseButton = document.querySelector('.pause-button');
 const gui = new dat.GUI();
 const clock = new THREE.Clock();
+
+let playerSpeed = 0.05;
+let gravity = 3;
 
 // FPS, render time, drawcalls
 const stats = new Stats();
@@ -45,7 +49,11 @@ document.addEventListener('keyup', (event) => {
     Key[event.key] = false;
 });
 
+// Octrees
+const floorOctree = new Octree();
+
 // Vectors
+let isPlayerGrounded = false;
 const playerVelocity = new THREE.Vector3();
 const playerDirection = new THREE.Vector3();
 const upVector = new THREE.Vector3(0, 1, 0);
@@ -57,8 +65,23 @@ const playerCapsule = new Capsule(
     0.5
 );
 
+// Player
+function playerUpdate(delta) {
+    !isPlayerGrounded && (playerVelocity.y -= gravity * delta);
+}
+
+function playerCollision() {
+    const collide = floorOctree.capsuleIntersect(playerCapsule);
+    isPlayerGrounded = false;
+    if (collide) {
+        isPlayerGrounded = collide.normal.y > 0;
+
+        playerCapsule.translate(collide.normal.multiplyScalar(collide.depth));
+        console.log('hej');
+    }
+}
+
 // Inputs
-let playerSpeed = 0.05;
 function playerControl() {
     if (Key['w']) {
         // console.log(lookVector());
@@ -116,7 +139,7 @@ function updateMovement() {
 }
 
 // First person camera
-document.addEventListener('mousedown', () => {
+canvas.addEventListener('mousedown', () => {
     document.body.requestPointerLock();
 });
 
@@ -180,6 +203,7 @@ floor.receiveShadow = true; //default
 scene.add(wall);
 scene.add(floor);
 scene.add(sphere);
+floorOctree.fromGraphNode(floor);
 
 // Lights
 const pointLight = new THREE.PointLight(0xffffff, 0.1);
@@ -222,9 +246,22 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+let animRequest;
+let toggle = false;
+pauseButton.addEventListener('click', () => {
+    toggle = !toggle;
+
+    if (toggle) {
+        console.log('Time is stopped!');
+        stopAnimation();
+    } else {
+        console.log('Time resumed!');
+        tick();
+    }
+});
+
 // time init
 let lastTime = performance.now();
-
 let velocityStats = document.querySelector('.velocity-stats');
 let positionStats = document.querySelector('.position-stats');
 
@@ -232,14 +269,23 @@ function roundStat(data) {
     return Math.round(data * 100) / 100;
 }
 
+function stopAnimation() {
+    cancelAnimationFrame(animRequest);
+    clock.stop();
+}
+
 // Animate
 const tick = () => {
     const delta = clock.getDelta();
 
     // Call tick again on the next frame
-    requestAnimationFrame(tick);
+    animRequest = requestAnimationFrame(tick);
 
-    playerControl();
+    playerControl(delta);
+
+    playerUpdate(delta);
+
+    playerCollision();
 
     // Update objects
     sphere.rotation.y += 0.5 * delta;
