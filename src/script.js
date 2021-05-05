@@ -50,7 +50,7 @@ document.addEventListener('keyup', (event) => {
 });
 
 // Octrees
-const floorOctree = new Octree();
+const worldOctree = new Octree();
 
 // Vectors
 let isPlayerGrounded = false;
@@ -67,11 +67,15 @@ const playerCapsule = new Capsule(
 
 // Player
 function playerUpdate(delta) {
-    !isPlayerGrounded && (playerVelocity.y -= gravity * delta);
+    isPlayerGrounded &&
+        playerVelocity.addScaledVector(playerVelocity, -5 * delta);
+    !isPlayerGrounded
+        ? (playerVelocity.y -= gravity * delta)
+        : (playerVelocity.y = 0);
 }
 
 function playerCollision() {
-    const collide = floorOctree.capsuleIntersect(playerCapsule);
+    const collide = worldOctree.capsuleIntersect(playerCapsule);
     isPlayerGrounded = false;
     if (collide) {
         isPlayerGrounded = collide.normal.y > 0;
@@ -181,8 +185,8 @@ gltfLoader.load('smile.glb', (gltf) => {
 
 // Objects
 const geometry = new THREE.IcosahedronGeometry(1);
-const floorGeometry = new THREE.BoxGeometry(10, 0.5, 10);
-const wallGeometry = new THREE.BoxGeometry(10, 5, 0.5);
+const floorGeometry = new THREE.BoxGeometry(100, 0.5, 100);
+const wallGeometry = new THREE.BoxGeometry(50, 30, 0.5);
 
 // Materials
 const floorMaterial = new THREE.MeshPhongMaterial();
@@ -196,14 +200,19 @@ const floor = new THREE.Mesh(floorGeometry, floorMaterial);
 const wall = new THREE.Mesh(wallGeometry, floorMaterial);
 
 floor.position.set(0, -3, 0);
-wall.position.set(0, -0.5, -5);
+wall.position.set(0, -0.5, -50);
 
 sphere.castShadow = true; //default
 floor.receiveShadow = true; //default
-scene.add(wall);
-scene.add(floor);
-scene.add(sphere);
-floorOctree.fromGraphNode(floor);
+// scene.add(wall);
+// scene.add(floor);
+// scene.add(sphere);
+const world = new THREE.Group();
+world.add(floor);
+world.add(sphere);
+world.add(wall);
+scene.add(world);
+worldOctree.fromGraphNode(world);
 
 // Lights
 const pointLight = new THREE.PointLight(0xffffff, 0.1);
