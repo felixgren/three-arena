@@ -85,6 +85,32 @@ function playerCollision() {
     }
 }
 
+let options = {
+    // Initial
+    cubeRotationX: 0,
+    cubeRotationY: 0.5,
+    stop: function () {
+        this.cubeRotationX = 0;
+        this.cubeRotationY = 0;
+    },
+    reset: function () {
+        this.cubeRotationX = 0;
+        this.cubeRotationY = 0.5;
+    },
+};
+
+let cubeRotation = gui.addFolder('Cube Rotation');
+cubeRotation
+    .add(options, 'cubeRotationX', -5, 5, 0.1)
+    .name('Cube Rotation X')
+    .listen();
+cubeRotation
+    .add(options, 'cubeRotationY', -5, 5, 0.1)
+    .name('Cube Rotation Y')
+    .listen();
+cubeRotation.add(options, 'stop');
+cubeRotation.add(options, 'reset');
+
 // Inputs
 function playerControl(delta) {
     if (Key['w']) {
@@ -303,7 +329,8 @@ const tick = () => {
     playerCollision();
 
     // Update objects
-    sphere.rotation.y += 0.5 * delta;
+    sphere.rotation.x += options.cubeRotationX * delta;
+    sphere.rotation.y += options.cubeRotationY * delta;
 
     updateMovement();
 
