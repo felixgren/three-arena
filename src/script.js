@@ -2,14 +2,21 @@ import './style.css';
 import * as THREE from 'three';
 import * as dat from 'dat.gui';
 import Stats from 'three/examples/jsm/libs/stats.module';
+import { Capsule } from 'three/examples/jsm/math/Capsule';
+import { Octree } from 'three/examples/jsm/math/Octree';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 
 const body = document.querySelector('body');
 const canvas = document.querySelector('canvas.webgl');
+const pauseButton = document.querySelector('.pause-button');
 const gui = new dat.GUI();
 const clock = new THREE.Clock();
+
+let playerSpeed = 30;
+let maxJumps = 2;
+let gravity = 30;
 
 // FPS, render time, drawcalls
 const stats = new Stats();
@@ -27,14 +34,164 @@ const camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
     0.1,
-    100
+    1000
 );
 camera.position.set(0, 0, 2);
-scene.add(camera);
+// scene.add(camera);
 
-// Controls
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
+const Key = {};
+
+// Movement Control
+document.addEventListener('keydown', (event) => {
+    Key[event.key] = true;
+});
+
+document.addEventListener('keyup', (event) => {
+    Key[event.key] = false;
+});
+
+// Octrees
+const worldOctree = new Octree();
+
+// Vectors
+let isPlayerGrounded = false;
+const playerVelocity = new THREE.Vector3();
+const playerDirection = new THREE.Vector3();
+const upVector = new THREE.Vector3(0, 1, 0);
+
+// https://wickedengine.net/2020/04/26/capsule-collision-detection/
+const playerCapsule = new Capsule(
+    new THREE.Vector3(),
+    new THREE.Vector3(0, 2, 0),
+    0.5
+);
+
+// Player
+function playerUpdate(delta) {
+    isPlayerGrounded &&
+        playerVelocity.addScaledVector(playerVelocity, -5 * delta);
+    !isPlayerGrounded
+        ? (playerVelocity.y -= gravity * delta)
+        : (playerVelocity.y = 0);
+}
+
+function playerCollision() {
+    const collide = worldOctree.capsuleIntersect(playerCapsule);
+    isPlayerGrounded = false;
+    if (collide) {
+        isPlayerGrounded = collide.normal.y > 0;
+
+        playerCapsule.translate(collide.normal.multiplyScalar(collide.depth));
+    }
+}
+
+let options = {
+    // Initial
+    cubeRotationX: 0,
+    cubeRotationY: 0.5,
+    stop: function () {
+        this.cubeRotationX = 0;
+        this.cubeRotationY = 0;
+    },
+    reset: function () {
+        this.cubeRotationX = 0;
+        this.cubeRotationY = 0.5;
+    },
+};
+
+let cubeRotation = gui.addFolder('Cube Rotation');
+cubeRotation
+    .add(options, 'cubeRotationX', -5, 5, 0.1)
+    .name('Cube Rotation X')
+    .listen();
+cubeRotation
+    .add(options, 'cubeRotationY', -5, 5, 0.1)
+    .name('Cube Rotation Y')
+    .listen();
+cubeRotation.add(options, 'stop');
+cubeRotation.add(options, 'reset');
+
+// Inputs
+function playerControl(delta) {
+    if (Key['w']) {
+        // console.log(lookVector());
+        playerVelocity.add(lookVector().multiplyScalar(playerSpeed * delta));
+    }
+    if (Key['a']) {
+        // console.log('A');
+        playerVelocity.add(
+            playerDirection.crossVectors(
+                upVector,
+                lookVector().multiplyScalar(playerSpeed * delta)
+            )
+        );
+    }
+    if (Key['s']) {
+        // console.log('S');
+        playerVelocity.add(
+            lookVector()
+                .negate()
+                .multiplyScalar(playerSpeed * delta)
+        );
+    }
+    if (Key['d']) {
+        // console.log('D');
+        playerVelocity.add(
+            playerDirection.crossVectors(
+                upVector,
+                lookVector()
+                    .negate()
+                    .multiplyScalar(playerSpeed * delta)
+            )
+        );
+    }
+    if (Key[' ']) {
+        // console.log('Spacebar');
+        playerVelocity.y = playerSpeed;
+    }
+    if (Key['Control']) {
+        // console.log('CTRL');
+        playerVelocity.y -= playerSpeed * delta;
+    }
+    if (Key['e']) {
+        playerVelocity.set(0, 0, 0);
+    }
+}
+
+// Input functions
+function lookVector() {
+    return camera.getWorldDirection(playerDirection);
+}
+
+function updateMovement() {
+    const deltaPosition = playerVelocity.clone().multiplyScalar(0.01);
+
+    // This can be used for movement without momentum
+    // camera.position.copy(deltaPosition);
+
+    // This is movement with momentum.
+    playerCapsule.translate(deltaPosition);
+    camera.position.copy(playerCapsule.end);
+}
+
+// First person camera
+canvas.addEventListener('mousedown', () => {
+    document.body.requestPointerLock();
+});
+
+camera.rotation.order = 'YXZ';
+document.addEventListener('mousemove', (event) => {
+    if (document.pointerLockElement === document.body) {
+        // if (camera.rotation.x > 1.55) {
+        //     camera.rotation.x = 1.55;
+        // }
+        // if (camera.rotation.x < -1.55) {
+        //     camera.rotation.x = -1.55;
+        // }
+        camera.rotation.x -= event.movementY / 700;
+        camera.rotation.y -= event.movementX / 700;
+    }
+});
 
 // Skybox
 scene.background = new THREE.CubeTextureLoader().load([
@@ -60,8 +217,8 @@ gltfLoader.load('smile.glb', (gltf) => {
 
 // Objects
 const geometry = new THREE.IcosahedronGeometry(1);
-const floorGeometry = new THREE.BoxGeometry(10, 0.5, 10);
-const wallGeometry = new THREE.BoxGeometry(10, 5, 0.5);
+const floorGeometry = new THREE.BoxGeometry(100, 0.5, 100);
+const wallGeometry = new THREE.BoxGeometry(50, 30, 0.5);
 
 // Materials
 const floorMaterial = new THREE.MeshPhongMaterial();
@@ -75,13 +232,19 @@ const floor = new THREE.Mesh(floorGeometry, floorMaterial);
 const wall = new THREE.Mesh(wallGeometry, floorMaterial);
 
 floor.position.set(0, -3, 0);
-wall.position.set(0, -0.5, -5);
+wall.position.set(0, -0.5, -50);
 
 sphere.castShadow = true; //default
 floor.receiveShadow = true; //default
-scene.add(wall);
-scene.add(floor);
-scene.add(sphere);
+// scene.add(wall);
+// scene.add(floor);
+// scene.add(sphere);
+const world = new THREE.Group();
+world.add(floor);
+world.add(sphere);
+world.add(wall);
+scene.add(world);
+worldOctree.fromGraphNode(world);
 
 // Lights
 const pointLight = new THREE.PointLight(0xffffff, 0.1);
@@ -102,6 +265,7 @@ scene.add(pointLightHelper2);
 const helper = new THREE.CameraHelper(pointLight.shadow.camera);
 scene.add(helper);
 
+// Resize
 window.addEventListener('resize', () => {
     // Update camera
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -123,27 +287,68 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+let animRequest;
+let toggle = false;
+pauseButton.addEventListener('click', () => {
+    toggle = !toggle;
+
+    if (toggle) {
+        console.log('Time is stopped!');
+        stopAnimation();
+    } else {
+        console.log('Time resumed!');
+        tick();
+    }
+});
+
 // time init
 let lastTime = performance.now();
+let velocityStats = document.querySelector('.velocity-stats');
+let positionStats = document.querySelector('.position-stats');
+
+function roundStat(data) {
+    return Math.round(data * 100) / 100;
+}
+
+function stopAnimation() {
+    cancelAnimationFrame(animRequest);
+    clock.stop();
+}
 
 // Animate
 const tick = () => {
-    // Call tick again on the next frame
-    requestAnimationFrame(tick);
-
-    // const elapsedTime = clock.getElapsedTime();
     const delta = clock.getDelta();
 
-    // Update objects
-    sphere.rotation.y += 0.5 * delta;
+    // Call tick again on the next frame
+    animRequest = requestAnimationFrame(tick);
 
-    // Update Orbital Controls
-    controls.update();
+    playerControl(delta);
+
+    playerUpdate(delta);
+
+    playerCollision();
+
+    // Update objects
+    sphere.rotation.x += options.cubeRotationX * delta;
+    sphere.rotation.y += options.cubeRotationY * delta;
+
+    updateMovement();
 
     stats.update();
 
     // Render
     renderer.render(scene, camera);
+
+    // Stats
+    velocityStats.innerHTML = `
+    X: ${roundStat(playerVelocity.x)} <br> 
+    Y: ${roundStat(playerVelocity.y)} <br> 
+    Z: ${roundStat(playerVelocity.z)}`;
+
+    positionStats.innerHTML = `
+    X: ${roundStat(camera.position.x)} <br> 
+    Y: ${roundStat(camera.position.y)} <br> 
+    Z: ${roundStat(camera.position.z)}`;
 
     if (performance.now() - lastTime < 1000 / 1) return;
     lastTime = performance.now();

@@ -15,3 +15,38 @@ body {
     left: 0;
     outline: none;
 }
+
+.custom-stats {
+    bottom: 0;
+    right: 0;
+    color: rgb(255, 102, 0);
+    background-color: rgba(53, 53, 53, 0.5);
+    position: absolute;
+    padding: 5px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 300;
+    z-index: 100;
+}
+.pause-button {
+    bottom: 0;
+    left: 0;
+    position: absolute;
+    z-index: 100;
+    display: inline-block;
+    padding: 0.35em 1.2em;
+    border: 0.1em solid #ffffff;
+    margin: 0 0.3em 0.3em 0;
+    border-radius: 0.12em;
+    box-sizing: border-box;
+    text-decoration: none;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 300;
+    color: #ffffff;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.pause-button:hover {
+    color: #000000;
+    background-color: #ffffff;
+}
