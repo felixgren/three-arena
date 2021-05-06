@@ -14,8 +14,9 @@ const pauseButton = document.querySelector('.pause-button');
 const gui = new dat.GUI();
 const clock = new THREE.Clock();
 
-let playerSpeed = 0.05;
-let gravity = 3;
+let playerSpeed = 30;
+let maxJumps = 2;
+let gravity = 30;
 
 // FPS, render time, drawcalls
 const stats = new Stats();
@@ -61,7 +62,7 @@ const upVector = new THREE.Vector3(0, 1, 0);
 // https://wickedengine.net/2020/04/26/capsule-collision-detection/
 const playerCapsule = new Capsule(
     new THREE.Vector3(),
-    new THREE.Vector3(),
+    new THREE.Vector3(0, 2, 0),
     0.5
 );
 
@@ -81,45 +82,50 @@ function playerCollision() {
         isPlayerGrounded = collide.normal.y > 0;
 
         playerCapsule.translate(collide.normal.multiplyScalar(collide.depth));
-        console.log('hej');
     }
 }
 
 // Inputs
-function playerControl() {
+function playerControl(delta) {
     if (Key['w']) {
         // console.log(lookVector());
-        playerVelocity.add(lookVector().multiplyScalar(playerSpeed));
+        playerVelocity.add(lookVector().multiplyScalar(playerSpeed * delta));
     }
     if (Key['a']) {
         // console.log('A');
         playerVelocity.add(
             playerDirection.crossVectors(
                 upVector,
-                lookVector().multiplyScalar(playerSpeed)
+                lookVector().multiplyScalar(playerSpeed * delta)
             )
         );
     }
     if (Key['s']) {
         // console.log('S');
-        playerVelocity.add(lookVector().negate().multiplyScalar(playerSpeed));
+        playerVelocity.add(
+            lookVector()
+                .negate()
+                .multiplyScalar(playerSpeed * delta)
+        );
     }
     if (Key['d']) {
         // console.log('D');
         playerVelocity.add(
             playerDirection.crossVectors(
                 upVector,
-                lookVector().negate().multiplyScalar(playerSpeed)
+                lookVector()
+                    .negate()
+                    .multiplyScalar(playerSpeed * delta)
             )
         );
     }
     if (Key[' ']) {
         // console.log('Spacebar');
-        playerVelocity.y += playerSpeed;
+        playerVelocity.y = playerSpeed;
     }
     if (Key['Control']) {
         // console.log('CTRL');
-        playerVelocity.y -= playerSpeed;
+        playerVelocity.y -= playerSpeed * delta;
     }
     if (Key['e']) {
         playerVelocity.set(0, 0, 0);
