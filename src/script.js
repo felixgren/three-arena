@@ -15,8 +15,10 @@ const gui = new dat.GUI();
 const clock = new THREE.Clock();
 
 let playerSpeed = 30;
-let maxJumps = 2;
+let maxJumps = 2; // not in yet
 let gravity = 30;
+let maxRockets = 100;
+let rocketForce = 30;
 
 // FPS, render time, drawcalls
 const stats = new Stats();
@@ -39,9 +41,8 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(0, 0, 2);
 // scene.add(camera);
 
-const Key = {};
-
 // Movement Control
+const Key = {};
 document.addEventListener('keydown', (event) => {
     Key[event.key] = true;
 });
@@ -99,6 +100,7 @@ let options = {
     },
 };
 
+// Debug GUI
 let cubeRotation = gui.addFolder('Cube Rotation');
 cubeRotation
     .add(options, 'cubeRotationX', -5, 5, 0.1)
@@ -193,6 +195,75 @@ document.addEventListener('mousemove', (event) => {
     }
 });
 
+const rocketGeometry = new THREE.CylinderGeometry(0, 0.5, 2, 5);
+const rocketMaterial = new THREE.MeshPhongMaterial();
+rocketMaterial.color = new THREE.Color(0xff111111);
+
+const rockets = [];
+let rocketIdx = 0;
+for (let i = 0; i < maxRockets; i++) {
+    const coolRocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
+
+    // Might be too expensive
+    coolRocket.castShadow = true;
+    coolRocket.receiveShadow = true;
+
+    scene.add(coolRocket);
+
+    rockets.push({
+        mesh: coolRocket,
+        collider: new THREE.Sphere(new THREE.Vector3(0, -50, 0), 0.5),
+        velocity: new THREE.Vector3(),
+    });
+}
+
+document.addEventListener('click', () => {
+    // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
+    console.log('Rocket fire event');
+    const rocket = rockets[rocketIdx];
+
+    // Align rocket to look direction
+    console.log(rocketIdx);
+    rocket.mesh.lookAt(lookVector().negate());
+
+    // Temporary light
+    pointLight.position.set(0, 0, 0);
+    rocket.mesh.add(pointLight);
+    pointLight.color = new THREE.Color(0xffaa00);
+    pointLight.power = 100;
+    pointLight.distance = 40;
+
+    // Copy player head pos to projectile center
+    rocket.collider.center.copy(playerCapsule.end);
+    // Apply force in look direction
+    rocket.velocity.copy(lookVector()).multiplyScalar(rocketForce);
+
+    rocketIdx = (rocketIdx + 1) % rockets.length;
+});
+
+function updateRockets(delta) {
+    rockets.forEach((rocket) => {
+        rocket.collider.center.addScaledVector(rocket.velocity, delta);
+
+        // Check collision
+        const result = worldOctree.sphereIntersect(rocket.collider);
+
+        if (result) {
+            // On hit
+            rocket.velocity.set(0, 0, 0);
+        } else {
+            // In air
+            rocket.velocity.y -= (gravity / 15) * delta;
+        }
+
+        // Accelerate with time
+        const acceleration = Math.exp(3 * delta) - 1;
+        rocket.velocity.addScaledVector(rocket.velocity, acceleration);
+
+        rocket.mesh.position.copy(rocket.collider.center);
+    });
+}
+
 // Skybox
 scene.background = new THREE.CubeTextureLoader().load([
     'skybox/bluecloud_rt.jpg',
@@ -233,6 +304,7 @@ const wall = new THREE.Mesh(wallGeometry, floorMaterial);
 
 floor.position.set(0, -3, 0);
 wall.position.set(0, -0.5, -50);
+sphere.position.set(0, 0, -10);
 
 sphere.castShadow = true; //default
 floor.receiveShadow = true; //default
@@ -247,15 +319,19 @@ scene.add(world);
 worldOctree.fromGraphNode(world);
 
 // Lights
+const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
 const pointLight = new THREE.PointLight(0xffffff, 0.1);
 const pointLight2 = new THREE.PointLight(0xffffff, 0.1);
 pointLight.castShadow = true;
 
 pointLight.position.set(3, 5, -1);
 pointLight2.position.set(-3, 2, 1);
+
+ambientLight.power = 30;
 pointLight.power = 20;
-pointLight2.power = 0;
-scene.add(pointLight, pointLight2);
+pointLight2.power = 10;
+
+scene.add(pointLight, pointLight2, ambientLight);
 
 const pointLightHelper = new THREE.PointLightHelper(pointLight);
 const pointLightHelper2 = new THREE.PointLightHelper(pointLight2);
@@ -327,6 +403,8 @@ const tick = () => {
     playerUpdate(delta);
 
     playerCollision();
+
+    updateRockets(delta);
 
     // Update objects
     sphere.rotation.x += options.cubeRotationX * delta;
