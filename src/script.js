@@ -165,6 +165,7 @@ function lookVector() {
     return camera.getWorldDirection(playerDirection);
 }
 
+let collisionsEnabled = true;
 function updateMovement() {
     const deltaPosition = playerVelocity.clone().multiplyScalar(0.01);
 
@@ -174,6 +175,21 @@ function updateMovement() {
     // This is movement with momentum.
     playerCapsule.translate(deltaPosition);
     camera.position.copy(playerCapsule.end);
+
+    if (collisionsEnabled) {
+        playerCollision();
+    }
+
+    if (camera.position.y < -200) {
+        console.log('Player fell off the map, up they go');
+        playerVelocity.set(0, 0, 0);
+        playerVelocity.y = 100;
+        collisionsEnabled = false;
+        setTimeout(() => {
+            console.log('World collisions re-enabled');
+            collisionsEnabled = true;
+        }, 2500);
+    }
 }
 
 // First person camera
@@ -401,8 +417,6 @@ const tick = () => {
     playerControl(delta);
 
     playerUpdate(delta);
-
-    playerCollision();
 
     updateRockets(delta);
 
