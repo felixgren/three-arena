@@ -166,8 +166,9 @@ function lookVector() {
 }
 
 let collisionsEnabled = true;
-function updateMovement() {
-    const deltaPosition = playerVelocity.clone().multiplyScalar(0.01);
+function updateMovement(delta) {
+    const deltaPosition = playerVelocity.clone().multiplyScalar(2.5 * delta);
+    // const deltaPosition = playerVelocity.clone().multiplyScalar(0.01);
 
     // This can be used for movement without momentum
     // camera.position.copy(deltaPosition);
@@ -182,8 +183,10 @@ function updateMovement() {
 
     if (camera.position.y < -200) {
         console.log('Player fell off the map, up they go');
+        let pushForce = 80; // maybe 100
+        camera.position.y < -500 && (pushForce = 1000);
         playerVelocity.set(0, 0, 0);
-        playerVelocity.y = 100;
+        playerVelocity.y = pushForce;
         collisionsEnabled = false;
         setTimeout(() => {
             console.log('World collisions re-enabled');
@@ -257,6 +260,15 @@ document.addEventListener('click', () => {
     rocketIdx = (rocketIdx + 1) % rockets.length;
 });
 
+let explodeRadius = 1;
+const explosionGeometry = new THREE.SphereGeometry(explodeRadius, 32, 32);
+const explosionMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    wireframe: true,
+});
+const explosionSphere = new THREE.Mesh(explosionGeometry, explosionMaterial);
+
+let onlyOnce = true;
 function updateRockets(delta) {
     rockets.forEach((rocket) => {
         rocket.collider.center.addScaledVector(rocket.velocity, delta);
@@ -267,6 +279,47 @@ function updateRockets(delta) {
         if (result) {
             // On hit
             rocket.velocity.set(0, 0, 0);
+            console.log('Rocket impact');
+            rocket.mesh.add(explosionSphere);
+
+            // sphere.rotation.x += options.cubeRotationX * delta;
+            // radiusVec.addScalar += 0.01 * delta;
+            // let radiusVec = new THREE.Vector3(1, 1, 1);
+            // radiusVec.addScalar();
+
+            explodeRadius += 0.01 * delta;
+            if (explodeRadius < 1.012) {
+                explosionSphere.geometry.scale(
+                    explodeRadius,
+                    explodeRadius,
+                    explodeRadius
+                );
+                // console.log(explosionSphere.geometry.z);
+            }
+
+            if (onlyOnce) {
+                onlyOnce = false;
+
+                // console.log(explosionSphere.geometry.boundingSphere.radius);
+                console.log(explosionSphere.geometry);
+                // console.log(explosionSphere.geometry.boundingSphere.radius);
+                setTimeout(() => {
+                    console.log(explosionSphere.geometry);
+                    console.log(explosionSphere.geometry.boundingSphere.radius);
+                }, 5000);
+                // setTimeout(() => {
+                //     console.log(explosionSphere);
+
+                //     // explosionSphere.scale(3, 3, 3);
+                //     explosionSphere.geometry.scale(
+                //         // radiusVec.x,
+                //         // radiusVec.y,
+                //         // radiusVec.z
+                //     );
+                // }, 1000);
+
+                // rocket.mesh.geometry.scale(3, 3, 3);
+            }
         } else {
             // In air
             rocket.velocity.y -= (gravity / 15) * delta;
@@ -424,7 +477,7 @@ const tick = () => {
     sphere.rotation.x += options.cubeRotationX * delta;
     sphere.rotation.y += options.cubeRotationY * delta;
 
-    updateMovement();
+    updateMovement(delta);
 
     stats.update();
 
