@@ -16,7 +16,7 @@ const clock = new THREE.Clock();
 
 let playerSpeed = 30;
 let maxJumps = 2; // not in yet
-let gravity = 30;
+let gravity = 70;
 let maxRockets = 10;
 let rocketForce = 30;
 
@@ -38,8 +38,6 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-camera.position.set(0, 0, 2);
-// scene.add(camera);
 
 // Movement Control
 const Key = {};
@@ -161,8 +159,7 @@ function lookVector() {
 
 let collisionsEnabled = true;
 function updateMovement(delta) {
-    // const deltaPosition = playerVelocity.clone().multiplyScalar(2.5 * delta);
-    const deltaPosition = playerVelocity.clone().multiplyScalar(0.01);
+    const deltaPosition = playerVelocity.clone().multiplyScalar(delta);
 
     // This can be used for movement without momentum
     // camera.position.copy(deltaPosition);
@@ -177,7 +174,7 @@ function updateMovement(delta) {
 
     if (camera.position.y < -200) {
         console.log('Player fell off the map, up they go');
-        let pushForce = 80; // maybe 100
+        let pushForce = 200;
         camera.position.y < -5000 && (pushForce = 500);
         playerVelocity.set(0, 0, 0);
         playerVelocity.y = pushForce;
