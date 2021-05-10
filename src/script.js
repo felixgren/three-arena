@@ -17,7 +17,7 @@ const clock = new THREE.Clock();
 let playerSpeed = 30;
 let maxJumps = 2; // not in yet
 let gravity = 30;
-let maxRockets = 100;
+let maxRockets = 10;
 let rocketForce = 30;
 
 // FPS, render time, drawcalls
@@ -116,11 +116,9 @@ cubeRotation.add(options, 'reset');
 // Inputs
 function playerControl(delta) {
     if (Key['w']) {
-        // console.log(lookVector());
         playerVelocity.add(lookVector().multiplyScalar(playerSpeed * delta));
     }
     if (Key['a']) {
-        // console.log('A');
         playerVelocity.add(
             playerDirection.crossVectors(
                 upVector,
@@ -129,7 +127,6 @@ function playerControl(delta) {
         );
     }
     if (Key['s']) {
-        // console.log('S');
         playerVelocity.add(
             lookVector()
                 .negate()
@@ -137,7 +134,6 @@ function playerControl(delta) {
         );
     }
     if (Key['d']) {
-        // console.log('D');
         playerVelocity.add(
             playerDirection.crossVectors(
                 upVector,
@@ -148,11 +144,9 @@ function playerControl(delta) {
         );
     }
     if (Key[' ']) {
-        // console.log('Spacebar');
         playerVelocity.y = playerSpeed;
     }
     if (Key['Control']) {
-        // console.log('CTRL');
         playerVelocity.y -= playerSpeed * delta;
     }
     if (Key['e']) {
@@ -167,8 +161,8 @@ function lookVector() {
 
 let collisionsEnabled = true;
 function updateMovement(delta) {
-    const deltaPosition = playerVelocity.clone().multiplyScalar(2.5 * delta);
-    // const deltaPosition = playerVelocity.clone().multiplyScalar(0.01);
+    // const deltaPosition = playerVelocity.clone().multiplyScalar(2.5 * delta);
+    const deltaPosition = playerVelocity.clone().multiplyScalar(0.01);
 
     // This can be used for movement without momentum
     // camera.position.copy(deltaPosition);
@@ -184,7 +178,7 @@ function updateMovement(delta) {
     if (camera.position.y < -200) {
         console.log('Player fell off the map, up they go');
         let pushForce = 80; // maybe 100
-        camera.position.y < -500 && (pushForce = 1000);
+        camera.position.y < -5000 && (pushForce = 500);
         playerVelocity.set(0, 0, 0);
         playerVelocity.y = pushForce;
         collisionsEnabled = false;
@@ -218,23 +212,41 @@ const rocketGeometry = new THREE.CylinderGeometry(0, 0.5, 2, 5);
 const rocketMaterial = new THREE.MeshPhongMaterial();
 rocketMaterial.color = new THREE.Color(0xff111111);
 
+const audioLoader = new THREE.AudioLoader();
+const audioListener = new THREE.AudioListener();
+camera.add(audioListener);
+
 const rockets = [];
 let rocketIdx = 0;
-for (let i = 0; i < maxRockets; i++) {
-    const coolRocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
 
-    // Might be too expensive
-    coolRocket.castShadow = true;
-    coolRocket.receiveShadow = true;
+audioLoader.load('sounds/rocket-explode.m4a', function (buffer) {
+    audioLoader.load('sounds/rocket-flying.m4a', function (buffer2) {
+        for (let i = 0; i < maxRockets; i++) {
+            const coolRocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
 
-    scene.add(coolRocket);
+            // Might be too expensive
+            coolRocket.castShadow = true;
+            coolRocket.receiveShadow = true;
 
-    rockets.push({
-        mesh: coolRocket,
-        collider: new THREE.Sphere(new THREE.Vector3(0, -50, 0), 0.5),
-        velocity: new THREE.Vector3(),
+            coolRocket.userData.isExploded = false;
+
+            const audioRocketExplode = new THREE.PositionalAudio(audioListener);
+            const audioRocketFly = new THREE.PositionalAudio(audioListener);
+            audioRocketExplode.setBuffer(buffer);
+            audioRocketFly.setBuffer(buffer2);
+            coolRocket.add(audioRocketExplode);
+            coolRocket.add(audioRocketFly);
+
+            scene.add(coolRocket);
+
+            rockets.push({
+                mesh: coolRocket,
+                collider: new THREE.Sphere(new THREE.Vector3(0, -50, 0), 0.5),
+                velocity: new THREE.Vector3(),
+            });
+        }
     });
-}
+});
 
 document.addEventListener('click', () => {
     // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
@@ -242,7 +254,6 @@ document.addEventListener('click', () => {
     const rocket = rockets[rocketIdx];
 
     // Align rocket to look direction
-    console.log(rocketIdx);
     rocket.mesh.lookAt(lookVector().negate());
 
     // Temporary light
@@ -257,18 +268,13 @@ document.addEventListener('click', () => {
     // Apply force in look direction
     rocket.velocity.copy(lookVector()).multiplyScalar(rocketForce);
 
+    // Reset explode state
+    rockets[rocketIdx].mesh.userData.isExploded = false;
+
     rocketIdx = (rocketIdx + 1) % rockets.length;
 });
 
-let explodeRadius = 1;
-const explosionGeometry = new THREE.SphereGeometry(explodeRadius, 32, 32);
-const explosionMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    wireframe: true,
-});
-const explosionSphere = new THREE.Mesh(explosionGeometry, explosionMaterial);
-
-let onlyOnce = true;
+let deltaRocket = 0;
 function updateRockets(delta) {
     rockets.forEach((rocket) => {
         rocket.collider.center.addScaledVector(rocket.velocity, delta);
@@ -276,49 +282,35 @@ function updateRockets(delta) {
         // Check collision
         const result = worldOctree.sphereIntersect(rocket.collider);
 
+        let airRocketIdx;
+        if (rocketIdx > 0) {
+            airRocketIdx = rocketIdx - 1;
+        } else {
+            airRocketIdx = rocketIdx;
+        }
+
+        const audioRocketFly = rockets[airRocketIdx].mesh.children[1];
+        const audioRocketExplode = rockets[airRocketIdx].mesh.children[0];
+
+        if (rocketIdx !== deltaRocket) {
+            console.log('New rocket fired');
+            deltaRocket = rocketIdx;
+
+            audioRocketFly.offset = 1;
+            audioRocketFly.play();
+        }
+
         if (result) {
             // On hit
             rocket.velocity.set(0, 0, 0);
-            console.log('Rocket impact');
-            rocket.mesh.add(explosionSphere);
-
-            // sphere.rotation.x += options.cubeRotationX * delta;
-            // radiusVec.addScalar += 0.01 * delta;
-            // let radiusVec = new THREE.Vector3(1, 1, 1);
-            // radiusVec.addScalar();
-
-            explodeRadius += 0.01 * delta;
-            if (explodeRadius < 1.012) {
-                explosionSphere.geometry.scale(
-                    explodeRadius,
-                    explodeRadius,
-                    explodeRadius
-                );
-                // console.log(explosionSphere.geometry.z);
-            }
-
-            if (onlyOnce) {
-                onlyOnce = false;
-
-                // console.log(explosionSphere.geometry.boundingSphere.radius);
-                console.log(explosionSphere.geometry);
-                // console.log(explosionSphere.geometry.boundingSphere.radius);
-                setTimeout(() => {
-                    console.log(explosionSphere.geometry);
-                    console.log(explosionSphere.geometry.boundingSphere.radius);
-                }, 5000);
-                // setTimeout(() => {
-                //     console.log(explosionSphere);
-
-                //     // explosionSphere.scale(3, 3, 3);
-                //     explosionSphere.geometry.scale(
-                //         // radiusVec.x,
-                //         // radiusVec.y,
-                //         // radiusVec.z
-                //     );
-                // }, 1000);
-
-                // rocket.mesh.geometry.scale(3, 3, 3);
+            if (
+                !audioRocketExplode.isPlaying &&
+                !rocket.mesh.userData.isExploded
+            ) {
+                rocket.mesh.userData.isExploded = true;
+                audioRocketExplode.offset = 0.05;
+                audioRocketExplode.play();
+                audioRocketFly.stop();
             }
         } else {
             // In air
