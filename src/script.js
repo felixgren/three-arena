@@ -17,7 +17,7 @@ const clock = new THREE.Clock();
 let playerSpeed = 30;
 let maxJumps = 2; // not in yet
 let gravity = 70;
-let maxRockets = 10;
+let maxRockets = 100;
 let rocketForce = 30;
 
 // FPS, render time, drawcalls
@@ -154,7 +154,9 @@ function playerControl(delta) {
 
 // Input functions
 function lookVector() {
-    return camera.getWorldDirection(playerDirection);
+    camera.getWorldDirection(playerDirection);
+    playerDirection.normalize();
+    return playerDirection;
 }
 
 let collisionsEnabled = true;
@@ -205,13 +207,22 @@ document.addEventListener('mousemove', (event) => {
     }
 });
 
-const rocketGeometry = new THREE.CylinderGeometry(0, 0.5, 2, 5);
+// Rocket Model
+const rocketGeometry = new THREE.CylinderGeometry(0.05, 0.15, 2, 12); // without animation
 const rocketMaterial = new THREE.MeshPhongMaterial();
-rocketMaterial.color = new THREE.Color(0xff111111);
+rocketMaterial.color = new THREE.Color(0x000000);
 
+// Rocket Audio
 const audioLoader = new THREE.AudioLoader();
 const audioListener = new THREE.AudioListener();
 camera.add(audioListener);
+
+// Rocket Lights
+const frontRocketLight = new THREE.PointLight(0xffaa00, 0.1);
+const backRocketLight = new THREE.PointLight(0xff0000, 0.1);
+scene.add(frontRocketLight, backRocketLight);
+frontRocketLight.castShadow = true;
+backRocketLight.castShadow = true;
 
 const rockets = [];
 let rocketIdx = 0;
@@ -247,26 +258,31 @@ audioLoader.load('sounds/rocket-explode.m4a', function (buffer) {
 
 document.addEventListener('click', () => {
     // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
-    console.log('Rocket fire event');
     const rocket = rockets[rocketIdx];
 
     // Align rocket to look direction
     rocket.mesh.lookAt(lookVector().negate());
 
-    // Temporary light
-    pointLight.position.set(0, 0, 0);
-    rocket.mesh.add(pointLight);
-    pointLight.color = new THREE.Color(0xffaa00);
-    pointLight.power = 100;
-    pointLight.distance = 40;
+    // Rocket lights
+    rocket.mesh.add(frontRocketLight, backRocketLight);
+    frontRocketLight.position.set(0, -1.1, 0);
+    backRocketLight.position.set(0, -1.2, 0);
+    frontRocketLight.power = 120;
+    backRocketLight.power = 100;
+    frontRocketLight.distance = 10;
+    backRocketLight.distance = 10; // use for animation
 
     // Copy player head pos to projectile center
     rocket.collider.center.copy(playerCapsule.end);
+
     // Apply force in look direction
     rocket.velocity.copy(lookVector()).multiplyScalar(rocketForce);
 
     // Reset explode state
-    rockets[rocketIdx].mesh.userData.isExploded = false;
+    rocket.mesh.userData.isExploded = false;
+
+    // Set rocket visible
+    rocket.mesh.visible = true;
 
     rocketIdx = (rocketIdx + 1) % rockets.length;
 });
@@ -290,9 +306,7 @@ function updateRockets(delta) {
         const audioRocketExplode = rockets[airRocketIdx].mesh.children[0];
 
         if (rocketIdx !== deltaRocket) {
-            console.log('New rocket fired');
             deltaRocket = rocketIdx;
-
             audioRocketFly.offset = 1;
             audioRocketFly.play();
         }
@@ -301,13 +315,19 @@ function updateRockets(delta) {
             // On hit
             rocket.velocity.set(0, 0, 0);
             if (
-                !audioRocketExplode.isPlaying &&
+                // !audioRocketExplode.isPlaying &&
                 !rocket.mesh.userData.isExploded
             ) {
+                console.log('Rocket hit');
                 rocket.mesh.userData.isExploded = true;
                 audioRocketExplode.offset = 0.05;
                 audioRocketExplode.play();
                 audioRocketFly.stop();
+
+                // Set rocket invisible
+                setTimeout(() => {
+                    rocket.mesh.visible = false;
+                }, 1000);
             }
         } else {
             // In air
