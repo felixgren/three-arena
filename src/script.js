@@ -9,6 +9,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import { DiscreteInterpolant, PlaneBufferGeometry, TextureLoader } from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 const body = document.querySelector('body');
 const canvas = document.querySelector('canvas.webgl');
 const pauseButton = document.querySelector('.pause-button');
@@ -34,12 +35,12 @@ const scene = new THREE.Scene();
 
 // Skybox
 scene.background = new THREE.CubeTextureLoader().load([
-    'skybox/Right_Tex.png',
-    'skybox/Left_Tex.png',
-    'skybox/Up_Tex.png',
-    'skybox/Down_Tex.png',
-    'skybox/Front_Tex.png',
-    'skybox/Back_Tex.png',
+    'skybox/Right_Tex.webp',
+    'skybox/Left_Tex.webp',
+    'skybox/Up_Tex.webp',
+    'skybox/Down_Tex.webp',
+    'skybox/Front_Tex.webp',
+    'skybox/Back_Tex.webp',
 ]);
 
 // Camera
@@ -193,7 +194,8 @@ function updateMovement(delta) {
         playerVelocity.y = pushForce;
         collisionsEnabled = false;
         setTimeout(() => {
-            console.log('World collisions re-enabled');
+            camera.position.y > -200 &&
+                console.log('World collisions re-enabled');
             collisionsEnabled = true;
         }, 2500);
     }
@@ -359,20 +361,25 @@ function updateRockets(delta) {
 }
 
 // Skybox
-scene.background = new THREE.CubeTextureLoader().load([
-    'skybox/bluecloud_rt.jpg',
-    'skybox/bluecloud_lf.jpg',
-    'skybox/bluecloud_up.jpg',
-    'skybox/bluecloud_dn.jpg',
-    'skybox/bluecloud_ft.jpg',
-    'skybox/bluecloud_bk.jpg',
-]);
+// scene.background = new THREE.CubeTextureLoader().load([
+//     'skybox/bluecloud_rt.jpg',
+//     'skybox/bluecloud_lf.jpg',
+//     'skybox/bluecloud_up.jpg',
+//     'skybox/bluecloud_dn.jpg',
+//     'skybox/bluecloud_ft.jpg',
+//     'skybox/bluecloud_bk.jpg',
+// ]);
 
 // Models GLTF/GLB
 const gltfLoader = new GLTFLoader().setPath('models/');
 
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('draco/');
+
+gltfLoader.setDRACOLoader(dracoLoader);
+
 // Terrain
-gltfLoader.load('terrain.glb', (gltf) => {
+gltfLoader.load('terrain-draco-2.glb', (gltf) => {
     gltf.scene.traverse((model) => {
         model.castShadow = true;
         // model.material.position.z = -800;
