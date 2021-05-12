@@ -7,7 +7,8 @@ import { Octree } from 'three/examples/jsm/math/Octree';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
-
+import { DiscreteInterpolant, PlaneBufferGeometry, TextureLoader } from 'three';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 const body = document.querySelector('body');
 const canvas = document.querySelector('canvas.webgl');
 const pauseButton = document.querySelector('.pause-button');
@@ -28,6 +29,16 @@ document.body.appendChild(stats.domElement);
 body.appendChild(stats.domElement);
 
 const scene = new THREE.Scene();
+
+// Skybox
+scene.background = new THREE.CubeTextureLoader().load([
+    'skybox/Right_Tex.png',
+    'skybox/Left_Tex.png',
+    'skybox/Up_Tex.png',
+    'skybox/Down_Tex.png',
+    'skybox/Front_Tex.png',
+    'skybox/Back_Tex.png',
+]);
 
 // Camera
 const camera = new THREE.PerspectiveCamera(
@@ -182,6 +193,8 @@ canvas.addEventListener('mousedown', () => {
 camera.rotation.order = 'YXZ';
 document.addEventListener('mousemove', (event) => {
     if (document.pointerLockElement === document.body) {
+        // FP Camera lock
+
         // if (camera.rotation.x > 1.55) {
         //     camera.rotation.x = 1.55;
         // }
@@ -193,32 +206,75 @@ document.addEventListener('mousemove', (event) => {
     }
 });
 
-// Skybox
-scene.background = new THREE.CubeTextureLoader().load([
-    'skybox/bluecloud_rt.jpg',
-    'skybox/bluecloud_lf.jpg',
-    'skybox/bluecloud_up.jpg',
-    'skybox/bluecloud_dn.jpg',
-    'skybox/bluecloud_ft.jpg',
-    'skybox/bluecloud_bk.jpg',
-]);
+// World environment group
+const world = new THREE.Group();
 
-// Model
+// Models GLTF/GLB
 const gltfLoader = new GLTFLoader().setPath('models/');
-gltfLoader.load('smile.glb', (gltf) => {
+
+// Terrain
+gltfLoader.load('terrain.glb', (gltf) => {
     gltf.scene.traverse((model) => {
         model.castShadow = true;
+        // model.material.position.z = -800;
+        // model.body.position.z = -800;
+        console.log(model.getWorldPosition);
     });
-    gltf.scene.position.z = 1;
-
-    // gltf.scene.scale = 10;
-    scene.add(gltf.scene);
+    // console.log(gltf.scene);
+    // gltf.scene.translateZ(-500);
+    // gltf.scene.position.y = -2;
+    world.add(gltf.scene);
+    worldOctree.fromGraphNode(gltf.scene);
 });
+
+// Models FBX
+const fbxLoader = new FBXLoader().setPath('models/');
+fbxLoader.load(
+    'rocks.fbx',
+    (object) => {
+        object.traverse(function (child) {
+            if (child instanceof THREE.Mesh) {
+                child.material.map = textureRock;
+                child.scale.set(0.15, 0.15, 0.15);
+                child.material.color.setHex(0xb5aa61);
+            }
+        });
+        object.position.x = -100;
+        object.position.z = 500;
+        object.position.y = 0;
+        world.add(object);
+        worldOctree.fromGraphNode(object);
+    },
+    (xhr) => {
+        console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
+    },
+    (error) => {
+        console.log(error);
+    }
+);
 
 // Objects
 const geometry = new THREE.IcosahedronGeometry(1);
-const floorGeometry = new THREE.BoxGeometry(100, 0.5, 100);
-const wallGeometry = new THREE.BoxGeometry(50, 30, 0.5);
+const floorGeometry = new THREE.PlaneBufferGeometry(500, 2000, 128, 128);
+
+// Textures
+
+const textureRock = new THREE.TextureLoader().load('models/rocktexture.jpg');
+textureRock.wrapS = THREE.RepeatWrapping;
+textureRock.wrapT = THREE.RepeatWrapping;
+textureRock.repeat.set(1, 1);
+
+const displacementMap = new THREE.TextureLoader().load('models/heightmap.png');
+displacementMap.wrapS = THREE.RepeatWrapping;
+displacementMap.wrapT = THREE.RepeatWrapping;
+displacementMap.repeat.set(1, 1);
+const textMat = new THREE.MeshPhongMaterial({
+    color: 'gray',
+    map: textureRock,
+    displacementMap: displacementMap,
+    displacementScale: 200,
+    displacementBias: -0.428408,
+});
 
 // Materials
 const floorMaterial = new THREE.MeshPhongMaterial();
@@ -227,35 +283,35 @@ const material = new THREE.MeshPhongMaterial();
 material.color = new THREE.Color(0xff109000);
 
 // Mesh
+
 const sphere = new THREE.Mesh(geometry, material);
-const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-const wall = new THREE.Mesh(wallGeometry, floorMaterial);
+const floor = new THREE.Mesh(floorGeometry, textMat);
 
-floor.position.set(0, -3, 0);
-wall.position.set(0, -0.5, -50);
+// Mesh geography
+floor.rotation.z = Math.PI / 2;
+floor.position.set(-500, -10, -1000);
+floor.rotation.x = -89.5;
 
+// Mesh Shadows
 sphere.castShadow = true; //default
 floor.receiveShadow = true; //default
-// scene.add(wall);
-// scene.add(floor);
-// scene.add(sphere);
-const world = new THREE.Group();
+
 world.add(floor);
 world.add(sphere);
-world.add(wall);
 scene.add(world);
 worldOctree.fromGraphNode(world);
 
 // Lights
 const pointLight = new THREE.PointLight(0xffffff, 0.1);
 const pointLight2 = new THREE.PointLight(0xffffff, 0.1);
+const ambient = new THREE.AmbientLight(0xffffff, 0.3);
 pointLight.castShadow = true;
 
-pointLight.position.set(3, 5, -1);
-pointLight2.position.set(-3, 2, 1);
+pointLight.position.set(3, 25, -1);
+pointLight2.position.set(-3, 20, 1);
 pointLight.power = 20;
 pointLight2.power = 0;
-scene.add(pointLight, pointLight2);
+scene.add(pointLight, pointLight2, ambient);
 
 const pointLightHelper = new THREE.PointLightHelper(pointLight);
 const pointLightHelper2 = new THREE.PointLightHelper(pointLight2);
@@ -285,7 +341,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 // Shadow renderer
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 
 let animRequest;
 let toggle = false;
