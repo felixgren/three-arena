@@ -16,8 +16,10 @@ const gui = new dat.GUI();
 const clock = new THREE.Clock();
 
 let playerSpeed = 30;
-let maxJumps = 2;
-let gravity = 30;
+let maxJumps = 2; // not in yet
+let gravity = 70;
+let maxRockets = 100;
+let rocketForce = 30;
 
 // FPS, render time, drawcalls
 const stats = new Stats();
@@ -47,12 +49,9 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-camera.position.set(0, 0, 2);
-// scene.add(camera);
-
-const Key = {};
 
 // Movement Control
+const Key = {};
 document.addEventListener('keydown', (event) => {
     Key[event.key] = true;
 });
@@ -110,6 +109,7 @@ let options = {
     },
 };
 
+// Debug GUI
 let cubeRotation = gui.addFolder('Cube Rotation');
 cubeRotation
     .add(options, 'cubeRotationX', -5, 5, 0.1)
@@ -125,11 +125,9 @@ cubeRotation.add(options, 'reset');
 // Inputs
 function playerControl(delta) {
     if (Key['w']) {
-        // console.log(lookVector());
         playerVelocity.add(lookVector().multiplyScalar(playerSpeed * delta));
     }
     if (Key['a']) {
-        // console.log('A');
         playerVelocity.add(
             playerDirection.crossVectors(
                 upVector,
@@ -138,7 +136,6 @@ function playerControl(delta) {
         );
     }
     if (Key['s']) {
-        // console.log('S');
         playerVelocity.add(
             lookVector()
                 .negate()
@@ -146,7 +143,6 @@ function playerControl(delta) {
         );
     }
     if (Key['d']) {
-        // console.log('D');
         playerVelocity.add(
             playerDirection.crossVectors(
                 upVector,
@@ -157,11 +153,9 @@ function playerControl(delta) {
         );
     }
     if (Key[' ']) {
-        // console.log('Spacebar');
         playerVelocity.y = playerSpeed;
     }
     if (Key['Control']) {
-        // console.log('CTRL');
         playerVelocity.y -= playerSpeed * delta;
     }
     if (Key['e']) {
@@ -171,11 +165,14 @@ function playerControl(delta) {
 
 // Input functions
 function lookVector() {
-    return camera.getWorldDirection(playerDirection);
+    camera.getWorldDirection(playerDirection);
+    playerDirection.normalize();
+    return playerDirection;
 }
 
-function updateMovement() {
-    const deltaPosition = playerVelocity.clone().multiplyScalar(0.01);
+let collisionsEnabled = true;
+function updateMovement(delta) {
+    const deltaPosition = playerVelocity.clone().multiplyScalar(delta);
 
     // This can be used for movement without momentum
     // camera.position.copy(deltaPosition);
@@ -183,6 +180,23 @@ function updateMovement() {
     // This is movement with momentum.
     playerCapsule.translate(deltaPosition);
     camera.position.copy(playerCapsule.end);
+
+    if (collisionsEnabled) {
+        playerCollision();
+    }
+
+    if (camera.position.y < -200) {
+        console.log('Player fell off the map, up they go');
+        let pushForce = 200;
+        camera.position.y < -5000 && (pushForce = 500);
+        playerVelocity.set(0, 0, 0);
+        playerVelocity.y = pushForce;
+        collisionsEnabled = false;
+        setTimeout(() => {
+            console.log('World collisions re-enabled');
+            collisionsEnabled = true;
+        }, 2500);
+    }
 }
 
 // First person camera
@@ -208,6 +222,151 @@ document.addEventListener('mousemove', (event) => {
 
 // World environment group
 const world = new THREE.Group();
+
+// Rocket Model
+const rocketGeometry = new THREE.CylinderGeometry(0.05, 0.15, 2, 12); // without animation
+const rocketMaterial = new THREE.MeshPhongMaterial();
+rocketMaterial.color = new THREE.Color(0x000000);
+
+// Rocket Audio
+const audioLoader = new THREE.AudioLoader();
+const audioListener = new THREE.AudioListener();
+camera.add(audioListener);
+
+// Rocket Lights
+const frontRocketLight = new THREE.PointLight(0xffaa00, 0.1);
+const backRocketLight = new THREE.PointLight(0xff0000, 0.1);
+scene.add(frontRocketLight, backRocketLight);
+frontRocketLight.castShadow = true;
+backRocketLight.castShadow = true;
+
+const rockets = [];
+let rocketIdx = 0;
+
+audioLoader.load('sounds/rocket-explode.m4a', function (buffer) {
+    audioLoader.load('sounds/rocket-flying.m4a', function (buffer2) {
+        for (let i = 0; i < maxRockets; i++) {
+            const coolRocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
+
+            // Might be too expensive
+            coolRocket.castShadow = true;
+            coolRocket.receiveShadow = true;
+
+            coolRocket.userData.isExploded = false;
+
+            const audioRocketExplode = new THREE.PositionalAudio(audioListener);
+            const audioRocketFly = new THREE.PositionalAudio(audioListener);
+            audioRocketExplode.setBuffer(buffer);
+            audioRocketFly.setBuffer(buffer2);
+            coolRocket.add(audioRocketExplode);
+            coolRocket.add(audioRocketFly);
+
+            scene.add(coolRocket);
+
+            rockets.push({
+                mesh: coolRocket,
+                collider: new THREE.Sphere(new THREE.Vector3(0, -50, 0), 0.5),
+                velocity: new THREE.Vector3(),
+            });
+        }
+    });
+});
+
+document.addEventListener('click', () => {
+    // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
+    const rocket = rockets[rocketIdx];
+
+    // Align rocket to look direction
+    rocket.mesh.lookAt(lookVector().negate());
+
+    // Rocket lights
+    rocket.mesh.add(frontRocketLight, backRocketLight);
+    frontRocketLight.position.set(0, -1.1, 0);
+    backRocketLight.position.set(0, -1.2, 0);
+    frontRocketLight.power = 120;
+    backRocketLight.power = 100;
+    frontRocketLight.distance = 10;
+    backRocketLight.distance = 10; // use for animation
+
+    // Copy player head pos to projectile center
+    rocket.collider.center.copy(playerCapsule.end);
+
+    // Apply force in look direction
+    rocket.velocity.copy(lookVector()).multiplyScalar(rocketForce);
+
+    // Reset explode state
+    rocket.mesh.userData.isExploded = false;
+
+    // Set rocket visible
+    rocket.mesh.visible = true;
+
+    rocketIdx = (rocketIdx + 1) % rockets.length;
+});
+
+let deltaRocket = 0;
+function updateRockets(delta) {
+    rockets.forEach((rocket) => {
+        rocket.collider.center.addScaledVector(rocket.velocity, delta);
+
+        // Check collision
+        const result = worldOctree.sphereIntersect(rocket.collider);
+
+        let airRocketIdx;
+        if (rocketIdx > 0) {
+            airRocketIdx = rocketIdx - 1;
+        } else {
+            airRocketIdx = rocketIdx;
+        }
+
+        const audioRocketFly = rockets[airRocketIdx].mesh.children[1];
+        const audioRocketExplode = rockets[airRocketIdx].mesh.children[0];
+
+        if (rocketIdx !== deltaRocket) {
+            deltaRocket = rocketIdx;
+            audioRocketFly.offset = 1;
+            audioRocketFly.play();
+        }
+
+        if (result) {
+            // On hit
+            rocket.velocity.set(0, 0, 0);
+            if (
+                // !audioRocketExplode.isPlaying &&
+                !rocket.mesh.userData.isExploded
+            ) {
+                console.log('Rocket hit');
+                rocket.mesh.userData.isExploded = true;
+                audioRocketExplode.offset = 0.05;
+                audioRocketExplode.play();
+                audioRocketFly.stop();
+
+                // Set rocket invisible
+                setTimeout(() => {
+                    rocket.mesh.visible = false;
+                }, 1000);
+            }
+        } else {
+            // In air
+            rocket.velocity.y -= (gravity / 15) * delta;
+        }
+
+        // Accelerate with time
+        const acceleration = Math.exp(3 * delta) - 1;
+        rocket.velocity.addScaledVector(rocket.velocity, acceleration);
+
+        rocket.mesh.position.copy(rocket.collider.center);
+    });
+}
+
+// Skybox
+scene.background = new THREE.CubeTextureLoader().load([
+    'skybox/bluecloud_rt.jpg',
+    'skybox/bluecloud_lf.jpg',
+    'skybox/bluecloud_up.jpg',
+    'skybox/bluecloud_dn.jpg',
+    'skybox/bluecloud_ft.jpg',
+    'skybox/bluecloud_bk.jpg',
+]);
 
 // Models GLTF/GLB
 const gltfLoader = new GLTFLoader().setPath('models/');
@@ -292,6 +451,10 @@ floor.rotation.z = Math.PI / 2;
 floor.position.set(-500, -10, -1000);
 floor.rotation.x = -89.5;
 
+// floor.position.set(0, -3, 0);
+// wall.position.set(0, -0.5, -50);
+// sphere.position.set(0, 0, -10);
+
 // Mesh Shadows
 sphere.castShadow = true; //default
 floor.receiveShadow = true; //default
@@ -302,16 +465,20 @@ scene.add(world);
 worldOctree.fromGraphNode(world);
 
 // Lights
+const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
 const pointLight = new THREE.PointLight(0xffffff, 0.1);
 const pointLight2 = new THREE.PointLight(0xffffff, 0.1);
 const ambient = new THREE.AmbientLight(0xffffff, 0.3);
 pointLight.castShadow = true;
 
-pointLight.position.set(3, 25, -1);
-pointLight2.position.set(-3, 20, 1);
+pointLight.position.set(3, 5, -1);
+pointLight2.position.set(-3, 2, 1);
+
+ambientLight.power = 30;
 pointLight.power = 20;
-pointLight2.power = 0;
-scene.add(pointLight, pointLight2, ambient);
+pointLight2.power = 10;
+
+scene.add(pointLight, pointLight2, ambientLight);
 
 const pointLightHelper = new THREE.PointLightHelper(pointLight);
 const pointLightHelper2 = new THREE.PointLightHelper(pointLight2);
@@ -382,13 +549,13 @@ const tick = () => {
 
     playerUpdate(delta);
 
-    playerCollision();
+    updateRockets(delta);
 
     // Update objects
     sphere.rotation.x += options.cubeRotationX * delta;
     sphere.rotation.y += options.cubeRotationY * delta;
 
-    updateMovement();
+    updateMovement(delta);
 
     stats.update();
 
