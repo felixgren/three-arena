@@ -1,4 +1,4 @@
-import './style.css';
+import '../style.css';
 import * as THREE from 'three';
 import * as dat from 'dat.gui';
 import Stats from 'three/examples/jsm/libs/stats.module';
@@ -50,6 +50,11 @@ class Game {
         this.frontRocketLight = null;
         this.backRocketLight = null;
 
+        // this.loadingManager = new THREE.LoadingManager();
+        this.audioLoader = new THREE.AudioLoader();
+        this.listener = new THREE.AudioListener();
+        this.audioMap = new Map();
+
         this.animRequest;
         this.requestAnimId = null;
         this.startAnimation = startAnimation.bind(this);
@@ -60,19 +65,20 @@ class Game {
             pauseButton: document.querySelector('.pause-button'),
             velocityStats: document.querySelector('.velocity-stats'),
             positionStats: document.querySelector('.position-stats'),
+            // crosshair: (document.querySelector('.crosshair').src =
+            //     'images/crosshair.png'),
         };
     }
 
     // Loading scene function before game is started
     load() {
         console.log('PRELOADING...');
-
+        this.initAudio();
         this.initScene();
         this.initSkybox();
         this.initMap();
         this.initPlayer();
         this.initRockets();
-        this.initAudio();
         this.initStats();
     }
 
@@ -112,6 +118,34 @@ class Game {
     // ------------------------------------------------
     // Main init functions during loading screen
 
+    initAudio() {
+        const audioLoader = this.audioLoader;
+        const audioMap = this.audioMap;
+        const listener = this.listener;
+
+        const rocketExplode = new THREE.PositionalAudio(listener);
+        const rocketFly = new THREE.PositionalAudio(listener);
+
+        audioLoader.load(
+            'sounds/rocket-explode.ogg',
+            (buffer) =>
+                rocketExplode.setBuffer(buffer) &&
+                console.log('-- loaded audio 1'),
+            console.log('-- loading audio one...')
+        );
+        audioLoader.load(
+            'sounds/rocket-flying.ogg',
+            (buffer) =>
+                rocketFly.setBuffer(buffer) &&
+                console.log('-- loaded audio 2!'),
+            console.log('-- loading audio two...')
+        );
+
+        audioMap.set('rocketFly', rocketFly);
+        audioMap.set('rocketExplode', rocketExplode);
+        console.log('init audio');
+    }
+
     initScene() {
         this.gui = new dat.GUI();
         this.clock = new THREE.Clock();
@@ -123,6 +157,7 @@ class Game {
             0.1,
             1000
         );
+        this.camera.add(this.listener);
 
         const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
         ambientLight.power = 30;
@@ -271,31 +306,15 @@ class Game {
         this.frontRocketLight.castShadow = true;
         this.backRocketLight.castShadow = true;
 
-        // const audioLoader = new THREE.AudioLoader();
-        // const audioListener = new THREE.AudioListener();
-
-        // this.camera.add(audioListener);
-
-        // audioLoader.load('sounds/rocket-explode.ogg', function (buffer) {
-        //     audioLoader.load('sounds/rocket-flying.ogg', function (buffer2) {
         for (let i = 0; i < this.maxRockets; i++) {
             const coolRocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
 
             coolRocket.castShadow = true;
             coolRocket.receiveShadow = true;
             coolRocket.userData.isExploded = false;
-
-            // const audioRocketExplode = new THREE.PositionalAudio(
-            //     audioListener
-            // );
-            // const audioRocketFly = new THREE.PositionalAudio(
-            //     audioListener
-            // );
-
-            // audioRocketExplode.setBuffer(buffer);
-            // audioRocketFly.setBuffer(buffer2);
-            // coolRocket.add(audioRocketExplode);
-            // coolRocket.add(audioRocketFly);
+            coolRocket.userData.rocketExplode = this.audioMap.get(
+                'rocketExplode'
+            );
 
             this.scene.add(coolRocket);
 
@@ -305,13 +324,7 @@ class Game {
                 velocity: new THREE.Vector3(),
             });
         }
-        //     });
-        // });
         console.log('init rockets');
-    }
-
-    initAudio() {
-        console.log('init global audio later?');
     }
 
     initStats() {
@@ -374,6 +387,9 @@ class Game {
             this.backRocketLight.power = 100;
             this.frontRocketLight.distance = 10;
             this.backRocketLight.distance = 10; // use for animation
+
+            // console.log(rocket.mesh.userData);
+            // rocket.mesh.add(rocket.mesh.userData.rocketExplode);
 
             // Copy player head pos to projectile center
             rocket.collider.center.copy(this.playerCapsule.end);
@@ -501,8 +517,10 @@ class Game {
 
             if (this.rocketIdx !== this.deltaRocket) {
                 this.deltaRocket = this.rocketIdx;
-                // audioRocketFly.offset = 1;
-                // audioRocketFly.play();
+
+                const audio = this.audioMap.get('rocketFly');
+                audio.offset = 1;
+                audio.play();
             }
 
             // On hit
@@ -514,9 +532,12 @@ class Game {
                 ) {
                     console.log('Rocket hit');
                     rocket.mesh.userData.isExploded = true;
-                    // audioRocketExplode.offset = 0.05;
-                    // audioRocketExplode.play();
-                    // audioRocketFly.stop();
+
+                    const audio = this.audioMap.get('rocketExplode');
+                    audio.offset = 0.05;
+                    audio.play();
+                    this.audioMap.get('rocketFly').stop();
+                    // rocket.mesh.children[2].play();
 
                     // Set rocket invisible
                     setTimeout(() => {
