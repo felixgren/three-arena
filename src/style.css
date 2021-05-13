@@ -50,3 +50,20 @@ body {
     color: #000000;
     background-color: #ffffff;
 }
+
+.start-button {
+    position: absolute;
+    top: 250px;
+    left: calc(50% - 100px);
+    font-size: 40px;
+    cursor: pointer;
+}
+
+/* .crosshair {
+    position: absolute;
+    top: 50vh;
+    left: calc(50% - 10px);
+    width: 100px;
+    height: auto;
+    border: 1px solid white;
+} */

@@ -10,579 +10,582 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import { DiscreteInterpolant, PlaneBufferGeometry, TextureLoader } from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-const body = document.querySelector('body');
-const canvas = document.querySelector('canvas.webgl');
-const pauseButton = document.querySelector('.pause-button');
-const gui = new dat.GUI();
-const clock = new THREE.Clock();
 
-let playerSpeed = 30;
-let maxJumps = 2; // not in yet
-let gravity = 70;
-let maxRockets = 100;
-let rocketForce = 30;
+class Game {
+    constructor() {
+        this.camera = null;
+        this.scene = null;
+        this.renderer = null;
 
-// FPS, render time, drawcalls
-const stats = new Stats();
-let drawCallPanel = stats.addPanel(
-    new Stats.Panel('drawcalls', '#ff8', '#221')
-);
-stats.showPanel(0, 1, 3);
-document.body.appendChild(stats.domElement);
-body.appendChild(stats.domElement);
+        this.gui = null;
+        this.clock = null;
 
-const scene = new THREE.Scene();
+        this.worldOctree = new Octree();
+        this.world = new THREE.Group();
 
-// Skybox
-scene.background = new THREE.CubeTextureLoader().load([
-    'skybox/Right_Tex.webp',
-    'skybox/Left_Tex.webp',
-    'skybox/Up_Tex.webp',
-    'skybox/Down_Tex.webp',
-    'skybox/Front_Tex.webp',
-    'skybox/Back_Tex.webp',
-]);
+        this.lastTime = null;
+        this.stats = null;
+        this.drawCallPanel = null;
 
-// Camera
-const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-);
+        this.player = null;
+        this.playerCapsule = null;
+        this.isPlayerGrounded = false;
+        this.playerSpeed = 30;
+        this.playerVelocity = null;
 
-// Movement Control
-const Key = {};
-document.addEventListener('keydown', (event) => {
-    Key[event.key] = true;
-});
+        this.Key = {};
+        this.controls = null;
+        this.maxJumps = 2;
+        this.upVector = null;
+        this.gravity = 70;
 
-document.addEventListener('keyup', (event) => {
-    Key[event.key] = false;
-});
+        this.toggle = false;
+        this.collisionsEnabled = true;
 
-// Octrees
-const worldOctree = new Octree();
+        this.rockets = [];
+        this.rocketForce = 90;
+        this.maxRockets = 20;
+        this.rocketIdx = 0;
+        this.deltaRocket = 0;
+        this.frontRocketLight = null;
+        this.backRocketLight = null;
 
-// Vectors
-let isPlayerGrounded = false;
-const playerVelocity = new THREE.Vector3();
-const playerDirection = new THREE.Vector3();
-const upVector = new THREE.Vector3(0, 1, 0);
+        this.animRequest;
+        this.requestAnimId = null;
+        this.startAnimation = startAnimation.bind(this);
+        this.stopAnimation = stopAnimation.bind(this);
 
-// https://wickedengine.net/2020/04/26/capsule-collision-detection/
-const playerCapsule = new Capsule(
-    new THREE.Vector3(),
-    new THREE.Vector3(0, 2, 0),
-    0.5
-);
-
-// Player
-function playerUpdate(delta) {
-    isPlayerGrounded &&
-        playerVelocity.addScaledVector(playerVelocity, -5 * delta);
-    !isPlayerGrounded
-        ? (playerVelocity.y -= gravity * delta)
-        : (playerVelocity.y = 0);
-}
-
-function playerCollision() {
-    const collide = worldOctree.capsuleIntersect(playerCapsule);
-    isPlayerGrounded = false;
-    if (collide) {
-        isPlayerGrounded = collide.normal.y > 0;
-
-        playerCapsule.translate(collide.normal.multiplyScalar(collide.depth));
+        this.ui = {
+            body: document.querySelector('body'),
+            pauseButton: document.querySelector('.pause-button'),
+            velocityStats: document.querySelector('.velocity-stats'),
+            positionStats: document.querySelector('.position-stats'),
+        };
     }
-}
 
-let options = {
-    // Initial
-    cubeRotationX: 0,
-    cubeRotationY: 0.5,
-    stop: function () {
-        this.cubeRotationX = 0;
-        this.cubeRotationY = 0;
-    },
-    reset: function () {
-        this.cubeRotationX = 0;
-        this.cubeRotationY = 0.5;
-    },
-};
+    // Loading scene function before game is started
+    load() {
+        console.log('PRELOADING...');
 
-// Debug GUI
-let cubeRotation = gui.addFolder('Cube Rotation');
-cubeRotation
-    .add(options, 'cubeRotationX', -5, 5, 0.1)
-    .name('Cube Rotation X')
-    .listen();
-cubeRotation
-    .add(options, 'cubeRotationY', -5, 5, 0.1)
-    .name('Cube Rotation Y')
-    .listen();
-cubeRotation.add(options, 'stop');
-cubeRotation.add(options, 'reset');
-
-// Inputs
-function playerControl(delta) {
-    if (Key['w']) {
-        playerVelocity.add(lookVector().multiplyScalar(playerSpeed * delta));
+        this.initScene();
+        this.initSkybox();
+        this.initMap();
+        this.initPlayer();
+        this.initRockets();
+        this.initAudio();
+        this.initStats();
     }
-    if (Key['a']) {
-        playerVelocity.add(
-            playerDirection.crossVectors(
-                upVector,
-                lookVector().multiplyScalar(playerSpeed * delta)
-            )
+
+    // Init function when game starts
+    startGame() {
+        console.log('START GAME');
+
+        this.activatePointerLock();
+        this.activateMovement();
+        this.activateRocketShooting();
+        this.startAnimation(); // Starts tick function
+    }
+
+    pauseGame() {
+        this.ui.pauseButton.addEventListener('click', () => {
+            this.toggle = !this.toggle;
+            this.toggle ? this.stopAnimation() : this.startAnimation();
+        });
+    }
+
+    // Main update game function
+    tick() {
+        const delta = this.clock.getDelta();
+
+        this.updatePlayerControl(delta);
+        this.updateCheckOnGround(delta);
+        this.updatePlayerMovement(delta);
+        this.updateRockets(delta);
+
+        this.stats.update();
+
+        this.renderer.render(this.scene, this.camera);
+
+        this.updateStats();
+    }
+
+    // ------------------------------------------------
+    // Main init functions during loading screen
+
+    initScene() {
+        this.gui = new dat.GUI();
+        this.clock = new THREE.Clock();
+        this.scene = new THREE.Scene();
+
+        this.camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
         );
+
+        const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+        ambientLight.power = 30;
+        this.scene.add(ambientLight);
+
+        // ---- MAYBE other init functions here such as field, playermodel, map, objects, rockets etc
+
+        this.renderer = new THREE.WebGLRenderer();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFShadowMap;
+        this.ui.body.appendChild(this.renderer.domElement);
+
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        });
+
+        console.log('init scene');
     }
-    if (Key['s']) {
-        playerVelocity.add(
-            lookVector()
-                .negate()
-                .multiplyScalar(playerSpeed * delta)
+
+    initSkybox() {
+        this.scene.background = new THREE.CubeTextureLoader().load([
+            'skybox/Right_Tex.webp',
+            'skybox/Left_Tex.webp',
+            'skybox/Up_Tex.webp',
+            'skybox/Down_Tex.webp',
+            'skybox/Front_Tex.webp',
+            'skybox/Back_Tex.webp',
+        ]);
+
+        console.log('init skybox');
+    }
+
+    initMap() {
+        const gltfLoader = new GLTFLoader().setPath('models/');
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('draco/');
+        gltfLoader.setDRACOLoader(dracoLoader);
+        gltfLoader.load('terrain-draco-2.glb', (gltf) => {
+            gltf.scene.traverse((model) => {
+                model.castShadow = true;
+            });
+            this.world.add(gltf.scene);
+            this.worldOctree.fromGraphNode(gltf.scene);
+        });
+
+        // Models FBX
+        const fbxLoader = new FBXLoader().setPath('models/');
+        fbxLoader.load('rocks.fbx', (rock) => {
+            rock.traverse(function (child) {
+                if (child instanceof THREE.Mesh) {
+                    child.material.map = textureRock;
+                    child.scale.set(0.15, 0.15, 0.15);
+                    child.material.color.setHex(0xb5aa61);
+                }
+            });
+            rock.position.x = -100;
+            rock.position.z = 500;
+            rock.position.y = 0;
+            this.world.add(rock);
+            this.worldOctree.fromGraphNode(rock);
+        });
+
+        // TEST Objects
+        const geometry = new THREE.IcosahedronGeometry(1);
+        const floorGeometry = new THREE.PlaneBufferGeometry(
+            500,
+            2000,
+            128,
+            128
         );
-    }
-    if (Key['d']) {
-        playerVelocity.add(
-            playerDirection.crossVectors(
-                upVector,
-                lookVector()
-                    .negate()
-                    .multiplyScalar(playerSpeed * delta)
-            )
+
+        const textureRock = new THREE.TextureLoader().load(
+            'models/rocktexture.jpg'
         );
+        textureRock.wrapS = THREE.RepeatWrapping;
+        textureRock.wrapT = THREE.RepeatWrapping;
+        textureRock.repeat.set(1, 1);
+
+        const displacementMap = new THREE.TextureLoader().load(
+            'models/heightmap.png'
+        );
+        displacementMap.wrapS = THREE.RepeatWrapping;
+        displacementMap.wrapT = THREE.RepeatWrapping;
+        displacementMap.repeat.set(1, 1);
+        const textMat = new THREE.MeshPhongMaterial({
+            color: 'gray',
+            map: textureRock,
+            displacementMap: displacementMap,
+            displacementScale: 200,
+            displacementBias: -0.428408,
+        });
+
+        const floorMaterial = new THREE.MeshPhongMaterial();
+        floorMaterial.color = new THREE.Color(0xff111111);
+        const material = new THREE.MeshPhongMaterial();
+        material.color = new THREE.Color(0xff109000);
+
+        const sphere = new THREE.Mesh(geometry, material);
+        const floor = new THREE.Mesh(floorGeometry, textMat);
+
+        floor.rotation.z = Math.PI / 2;
+        floor.position.set(-500, -10, -1000);
+        floor.rotation.x = -89.5;
+
+        sphere.castShadow = true;
+        floor.receiveShadow = true;
+
+        this.world.add(floor);
+        this.world.add(sphere);
+        this.scene.add(this.world);
+        this.worldOctree.fromGraphNode(this.world);
+
+        console.log('init map');
     }
-    if (Key[' ']) {
-        playerVelocity.y = playerSpeed;
-    }
-    if (Key['Control']) {
-        playerVelocity.y -= playerSpeed * delta;
-    }
-    if (Key['e']) {
-        playerVelocity.set(0, 0, 0);
-    }
-}
 
-// Input functions
-function lookVector() {
-    camera.getWorldDirection(playerDirection);
-    playerDirection.normalize();
-    return playerDirection;
-}
+    initPlayer() {
+        this.playerVelocity = new THREE.Vector3();
+        this.playerDirection = new THREE.Vector3();
+        this.upVector = new THREE.Vector3(0, 1, 0);
 
-let collisionsEnabled = true;
-function updateMovement(delta) {
-    const deltaPosition = playerVelocity.clone().multiplyScalar(delta);
+        // https://wickedengine.net/2020/04/26/capsule-collision-detection/
+        this.playerCapsule = new Capsule(
+            new THREE.Vector3(),
+            new THREE.Vector3(0, 2, 0),
+            0.5
+        );
 
-    // This can be used for movement without momentum
-    // camera.position.copy(deltaPosition);
-
-    // This is movement with momentum.
-    playerCapsule.translate(deltaPosition);
-    camera.position.copy(playerCapsule.end);
-
-    if (collisionsEnabled) {
-        playerCollision();
+        console.log('init player');
     }
 
-    if (camera.position.y < -200) {
-        console.log('Player fell off the map, up they go');
-        let pushForce = 200;
-        camera.position.y < -5000 && (pushForce = 500);
-        playerVelocity.set(0, 0, 0);
-        playerVelocity.y = pushForce;
-        collisionsEnabled = false;
-        setTimeout(() => {
-            camera.position.y > -200 &&
-                console.log('World collisions re-enabled');
-            collisionsEnabled = true;
-        }, 2500);
-    }
-}
+    initRockets() {
+        const rocketGeometry = new THREE.CylinderGeometry(0.05, 0.15, 2, 12);
+        const rocketMaterial = new THREE.MeshPhongMaterial();
+        rocketMaterial.color = new THREE.Color(0x000000);
 
-// First person camera
-canvas.addEventListener('mousedown', () => {
-    document.body.requestPointerLock();
-});
+        this.frontRocketLight = new THREE.PointLight(0xffaa00, 0.1);
+        this.backRocketLight = new THREE.PointLight(0xff0000, 0.1);
 
-camera.rotation.order = 'YXZ';
-document.addEventListener('mousemove', (event) => {
-    if (document.pointerLockElement === document.body) {
-        // FP Camera lock
+        this.scene.add(this.frontRocketLight, this.backRocketLight);
 
-        // if (camera.rotation.x > 1.55) {
-        //     camera.rotation.x = 1.55;
-        // }
-        // if (camera.rotation.x < -1.55) {
-        //     camera.rotation.x = -1.55;
-        // }
-        camera.rotation.x -= event.movementY / 700;
-        camera.rotation.y -= event.movementX / 700;
-    }
-});
+        this.frontRocketLight.castShadow = true;
+        this.backRocketLight.castShadow = true;
 
-// World environment group
-const world = new THREE.Group();
+        // const audioLoader = new THREE.AudioLoader();
+        // const audioListener = new THREE.AudioListener();
 
-// Rocket Model
-const rocketGeometry = new THREE.CylinderGeometry(0.05, 0.15, 2, 12); // without animation
-const rocketMaterial = new THREE.MeshPhongMaterial();
-rocketMaterial.color = new THREE.Color(0x000000);
+        // this.camera.add(audioListener);
 
-// Rocket Audio
-const audioLoader = new THREE.AudioLoader();
-const audioListener = new THREE.AudioListener();
-camera.add(audioListener);
-
-// Rocket Lights
-const frontRocketLight = new THREE.PointLight(0xffaa00, 0.1);
-const backRocketLight = new THREE.PointLight(0xff0000, 0.1);
-scene.add(frontRocketLight, backRocketLight);
-frontRocketLight.castShadow = true;
-backRocketLight.castShadow = true;
-
-const rockets = [];
-let rocketIdx = 0;
-
-audioLoader.load('sounds/rocket-explode.m4a', function (buffer) {
-    audioLoader.load('sounds/rocket-flying.m4a', function (buffer2) {
-        for (let i = 0; i < maxRockets; i++) {
+        // audioLoader.load('sounds/rocket-explode.ogg', function (buffer) {
+        //     audioLoader.load('sounds/rocket-flying.ogg', function (buffer2) {
+        for (let i = 0; i < this.maxRockets; i++) {
             const coolRocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
 
-            // Might be too expensive
             coolRocket.castShadow = true;
             coolRocket.receiveShadow = true;
-
             coolRocket.userData.isExploded = false;
 
-            const audioRocketExplode = new THREE.PositionalAudio(audioListener);
-            const audioRocketFly = new THREE.PositionalAudio(audioListener);
-            audioRocketExplode.setBuffer(buffer);
-            audioRocketFly.setBuffer(buffer2);
-            coolRocket.add(audioRocketExplode);
-            coolRocket.add(audioRocketFly);
+            // const audioRocketExplode = new THREE.PositionalAudio(
+            //     audioListener
+            // );
+            // const audioRocketFly = new THREE.PositionalAudio(
+            //     audioListener
+            // );
 
-            scene.add(coolRocket);
+            // audioRocketExplode.setBuffer(buffer);
+            // audioRocketFly.setBuffer(buffer2);
+            // coolRocket.add(audioRocketExplode);
+            // coolRocket.add(audioRocketFly);
 
-            rockets.push({
+            this.scene.add(coolRocket);
+
+            this.rockets.push({
                 mesh: coolRocket,
                 collider: new THREE.Sphere(new THREE.Vector3(0, -50, 0), 0.5),
                 velocity: new THREE.Vector3(),
             });
         }
-    });
-});
+        //     });
+        // });
+        console.log('init rockets');
+    }
 
-document.addEventListener('click', () => {
-    // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
-    const rocket = rockets[rocketIdx];
+    initAudio() {
+        console.log('init global audio later?');
+    }
 
-    // Align rocket to look direction
-    rocket.mesh.lookAt(lookVector().negate());
+    initStats() {
+        this.stats = new Stats();
+        this.drawCallPanel = this.stats.addPanel(
+            new Stats.Panel('drawcalls', '#ff8', '#221')
+        );
+        this.stats.showPanel(0, 1, 3);
+        this.ui.body.appendChild(this.stats.domElement);
+        this.ui.body.appendChild(this.stats.domElement);
 
-    // Rocket lights
-    rocket.mesh.add(frontRocketLight, backRocketLight);
-    frontRocketLight.position.set(0, -1.1, 0);
-    backRocketLight.position.set(0, -1.2, 0);
-    frontRocketLight.power = 120;
-    backRocketLight.power = 100;
-    frontRocketLight.distance = 10;
-    backRocketLight.distance = 10; // use for animation
+        this.lastTime = performance.now();
+    }
 
-    // Copy player head pos to projectile center
-    rocket.collider.center.copy(playerCapsule.end);
+    // ------------------------------------------------
+    // Activate functions when game starts
 
-    // Apply force in look direction
-    rocket.velocity.copy(lookVector()).multiplyScalar(rocketForce);
+    activatePointerLock() {
+        this.ui.body.requestPointerLock();
 
-    // Reset explode state
-    rocket.mesh.userData.isExploded = false;
+        document.querySelector('canvas').addEventListener('mousedown', () => {
+            this.ui.body.requestPointerLock();
+        });
 
-    // Set rocket visible
-    rocket.mesh.visible = true;
+        this.camera.rotation.order = 'YXZ';
 
-    rocketIdx = (rocketIdx + 1) % rockets.length;
-});
-
-let deltaRocket = 0;
-function updateRockets(delta) {
-    rockets.forEach((rocket) => {
-        rocket.collider.center.addScaledVector(rocket.velocity, delta);
-
-        // Check collision
-        const result = worldOctree.sphereIntersect(rocket.collider);
-
-        let airRocketIdx;
-        if (rocketIdx > 0) {
-            airRocketIdx = rocketIdx - 1;
-        } else {
-            airRocketIdx = rocketIdx;
-        }
-
-        const audioRocketFly = rockets[airRocketIdx].mesh.children[1];
-        const audioRocketExplode = rockets[airRocketIdx].mesh.children[0];
-
-        if (rocketIdx !== deltaRocket) {
-            deltaRocket = rocketIdx;
-            audioRocketFly.offset = 1;
-            audioRocketFly.play();
-        }
-
-        if (result) {
-            // On hit
-            rocket.velocity.set(0, 0, 0);
-            if (
-                // !audioRocketExplode.isPlaying &&
-                !rocket.mesh.userData.isExploded
-            ) {
-                console.log('Rocket hit');
-                rocket.mesh.userData.isExploded = true;
-                audioRocketExplode.offset = 0.05;
-                audioRocketExplode.play();
-                audioRocketFly.stop();
-
-                // Set rocket invisible
-                setTimeout(() => {
-                    rocket.mesh.visible = false;
-                }, 1000);
-            }
-        } else {
-            // In air
-            rocket.velocity.y -= (gravity / 15) * delta;
-        }
-
-        // Accelerate with time
-        const acceleration = Math.exp(3 * delta) - 1;
-        rocket.velocity.addScaledVector(rocket.velocity, acceleration);
-
-        rocket.mesh.position.copy(rocket.collider.center);
-    });
-}
-
-// Skybox
-// scene.background = new THREE.CubeTextureLoader().load([
-//     'skybox/bluecloud_rt.jpg',
-//     'skybox/bluecloud_lf.jpg',
-//     'skybox/bluecloud_up.jpg',
-//     'skybox/bluecloud_dn.jpg',
-//     'skybox/bluecloud_ft.jpg',
-//     'skybox/bluecloud_bk.jpg',
-// ]);
-
-// Models GLTF/GLB
-const gltfLoader = new GLTFLoader().setPath('models/');
-
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('draco/');
-
-gltfLoader.setDRACOLoader(dracoLoader);
-
-// Terrain
-gltfLoader.load('terrain-draco-2.glb', (gltf) => {
-    gltf.scene.traverse((model) => {
-        model.castShadow = true;
-        // model.material.position.z = -800;
-        // model.body.position.z = -800;
-        console.log(model.getWorldPosition);
-    });
-    // console.log(gltf.scene);
-    // gltf.scene.translateZ(-500);
-    // gltf.scene.position.y = -2;
-    world.add(gltf.scene);
-    worldOctree.fromGraphNode(gltf.scene);
-});
-
-// Models FBX
-const fbxLoader = new FBXLoader().setPath('models/');
-fbxLoader.load(
-    'rocks.fbx',
-    (object) => {
-        object.traverse(function (child) {
-            if (child instanceof THREE.Mesh) {
-                child.material.map = textureRock;
-                child.scale.set(0.15, 0.15, 0.15);
-                child.material.color.setHex(0xb5aa61);
+        document.addEventListener('mousemove', (event) => {
+            if (document.pointerLockElement === this.ui.body) {
+                // add check looking for 360 rotation
+                this.camera.rotation.x -= event.movementY / 700;
+                this.camera.rotation.y -= event.movementX / 700;
             }
         });
-        object.position.x = -100;
-        object.position.z = 500;
-        object.position.y = 0;
-        world.add(object);
-        worldOctree.fromGraphNode(object);
-    },
-    (xhr) => {
-        console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
-    },
-    (error) => {
-        console.log(error);
+        console.log('Activate pointerlock');
     }
-);
 
-// Objects
-const geometry = new THREE.IcosahedronGeometry(1);
-const floorGeometry = new THREE.PlaneBufferGeometry(500, 2000, 128, 128);
+    activateMovement() {
+        document.addEventListener('keydown', (event) => {
+            this.Key[event.key] = true;
+        });
+        document.addEventListener('keyup', (event) => {
+            this.Key[event.key] = false;
+        });
 
-// Textures
-
-const textureRock = new THREE.TextureLoader().load('models/rocktexture.jpg');
-textureRock.wrapS = THREE.RepeatWrapping;
-textureRock.wrapT = THREE.RepeatWrapping;
-textureRock.repeat.set(1, 1);
-
-const displacementMap = new THREE.TextureLoader().load('models/heightmap.png');
-displacementMap.wrapS = THREE.RepeatWrapping;
-displacementMap.wrapT = THREE.RepeatWrapping;
-displacementMap.repeat.set(1, 1);
-const textMat = new THREE.MeshPhongMaterial({
-    color: 'gray',
-    map: textureRock,
-    displacementMap: displacementMap,
-    displacementScale: 200,
-    displacementBias: -0.428408,
-});
-
-// Materials
-const floorMaterial = new THREE.MeshPhongMaterial();
-floorMaterial.color = new THREE.Color(0xff111111);
-const material = new THREE.MeshPhongMaterial();
-material.color = new THREE.Color(0xff109000);
-
-// Mesh
-
-const sphere = new THREE.Mesh(geometry, material);
-const floor = new THREE.Mesh(floorGeometry, textMat);
-
-// Mesh geography
-floor.rotation.z = Math.PI / 2;
-floor.position.set(-500, -10, -1000);
-floor.rotation.x = -89.5;
-
-// floor.position.set(0, -3, 0);
-// wall.position.set(0, -0.5, -50);
-// sphere.position.set(0, 0, -10);
-
-// Mesh Shadows
-sphere.castShadow = true; //default
-floor.receiveShadow = true; //default
-
-world.add(floor);
-world.add(sphere);
-scene.add(world);
-worldOctree.fromGraphNode(world);
-
-// Lights
-const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-const pointLight = new THREE.PointLight(0xffffff, 0.1);
-const pointLight2 = new THREE.PointLight(0xffffff, 0.1);
-const ambient = new THREE.AmbientLight(0xffffff, 0.3);
-pointLight.castShadow = true;
-
-pointLight.position.set(3, 5, -1);
-pointLight2.position.set(-3, 2, 1);
-
-ambientLight.power = 30;
-pointLight.power = 20;
-pointLight2.power = 10;
-
-scene.add(pointLight, pointLight2, ambientLight);
-
-const pointLightHelper = new THREE.PointLightHelper(pointLight);
-const pointLightHelper2 = new THREE.PointLightHelper(pointLight2);
-scene.add(pointLightHelper);
-scene.add(pointLightHelper2);
-
-const helper = new THREE.CameraHelper(pointLight.shadow.camera);
-scene.add(helper);
-
-// Resize
-window.addEventListener('resize', () => {
-    // Update camera
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-
-    // Update renderer
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-});
-
-// Renderer
-const renderer = new THREE.WebGLRenderer({
-    canvas: canvas,
-});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-// Shadow renderer
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;
-
-let animRequest;
-let toggle = false;
-pauseButton.addEventListener('click', () => {
-    toggle = !toggle;
-
-    if (toggle) {
-        console.log('Time is stopped!');
-        stopAnimation();
-    } else {
-        console.log('Time resumed!');
-        tick();
+        console.log('Activate movement controls');
     }
-});
 
-// time init
-let lastTime = performance.now();
-let velocityStats = document.querySelector('.velocity-stats');
-let positionStats = document.querySelector('.position-stats');
+    activateRocketShooting() {
+        document.addEventListener('click', () => {
+            // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
+            const rocket = this.rockets[this.rocketIdx];
 
-function roundStat(data) {
-    return Math.round(data * 100) / 100;
+            // Align rocket to look direction
+            rocket.mesh.lookAt(this.lookVector().negate());
+
+            rocket.mesh.add(this.frontRocketLight, this.backRocketLight);
+            this.frontRocketLight.position.set(0, -1.1, 0);
+            this.backRocketLight.position.set(0, -1.2, 0);
+            this.frontRocketLight.power = 120;
+            this.backRocketLight.power = 100;
+            this.frontRocketLight.distance = 10;
+            this.backRocketLight.distance = 10; // use for animation
+
+            // Copy player head pos to projectile center
+            rocket.collider.center.copy(this.playerCapsule.end);
+
+            // Apply force in look direction
+            rocket.velocity
+                .copy(this.lookVector())
+                .multiplyScalar(this.rocketForce);
+
+            // Reset explode state
+            rocket.mesh.userData.isExploded = false;
+
+            // Set rocket visible
+            rocket.mesh.visible = true;
+
+            this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
+
+            console.log('Rocket fired');
+        });
+    }
+
+    // ------------------------------------------------
+    // Functions to update game in animation function (tick)
+
+    updatePlayerControl(delta) {
+        if (this.Key['w']) {
+            this.playerVelocity.add(
+                this.lookVector().multiplyScalar(this.playerSpeed * delta)
+            );
+        }
+        if (this.Key['a']) {
+            this.playerVelocity.add(
+                this.playerDirection.crossVectors(
+                    this.upVector,
+                    this.lookVector().multiplyScalar(this.playerSpeed * delta)
+                )
+            );
+        }
+        if (this.Key['s']) {
+            this.playerVelocity.add(
+                this.lookVector()
+                    .negate()
+                    .multiplyScalar(this.playerSpeed * delta)
+            );
+        }
+        if (this.Key['d']) {
+            this.playerVelocity.add(
+                this.playerDirection.crossVectors(
+                    this.upVector,
+                    this.lookVector()
+                        .negate()
+                        .multiplyScalar(this.playerSpeed * delta)
+                )
+            );
+        }
+        if (this.Key[' ']) {
+            this.playerVelocity.y = this.playerSpeed;
+        }
+        if (this.Key['Control']) {
+            this.playerVelocity.y -= this.playerSpeed * delta;
+        }
+        if (this.Key['e']) {
+            this.playerVelocity.set(0, 0, 0);
+        }
+    }
+
+    updateCheckOnGround(delta) {
+        this.isPlayerGrounded &&
+            this.playerVelocity.addScaledVector(
+                this.playerVelocity,
+                -5 * delta
+            );
+        !this.isPlayerGrounded
+            ? (this.playerVelocity.y -= this.gravity * delta)
+            : (this.playerVelocity.y = 0);
+    }
+
+    updatePlayerMovement(delta) {
+        const deltaPosition = this.playerVelocity.clone().multiplyScalar(delta);
+
+        // This can be used for movement without momentum
+        // camera.position.copy(deltaPosition);
+
+        // This is movement with momentum.
+        this.playerCapsule.translate(deltaPosition);
+        this.camera.position.copy(this.playerCapsule.end);
+
+        if (this.collisionsEnabled) {
+            this.playerCollision();
+        }
+
+        if (this.camera.position.y < -200) {
+            console.log('Player fell off the map, up they go');
+            let pushForce = 200;
+            this.camera.position.y < -5000 && (pushForce = 500);
+            this.playerVelocity.set(0, 0, 0);
+            this.playerVelocity.y = pushForce;
+            this.collisionsEnabled = false;
+
+            setTimeout(() => {
+                this.camera.position.y > -200 &&
+                    console.log('World collisions re-enabled');
+                this.collisionsEnabled = true;
+            }, 2500);
+        }
+    }
+
+    updateRockets(delta) {
+        this.rockets.forEach((rocket) => {
+            rocket.collider.center.addScaledVector(rocket.velocity, delta);
+
+            // Check collision
+            const result = this.worldOctree.sphereIntersect(rocket.collider);
+
+            let airRocketIdx;
+            if (this.rocketIdx > 0) {
+                airRocketIdx = this.rocketIdx - 1;
+            } else {
+                airRocketIdx = this.rocketIdx;
+            }
+
+            // const audioRocketFly = this.rockets[airRocketIdx].mesh.children[1];
+            // const audioRocketExplode = this.rockets[airRocketIdx].mesh
+            //     .children[0];
+
+            if (this.rocketIdx !== this.deltaRocket) {
+                this.deltaRocket = this.rocketIdx;
+                // audioRocketFly.offset = 1;
+                // audioRocketFly.play();
+            }
+
+            // On hit
+            if (result) {
+                rocket.velocity.set(0, 0, 0);
+                if (
+                    // !audioRocketExplode.isPlaying &&
+                    !rocket.mesh.userData.isExploded
+                ) {
+                    console.log('Rocket hit');
+                    rocket.mesh.userData.isExploded = true;
+                    // audioRocketExplode.offset = 0.05;
+                    // audioRocketExplode.play();
+                    // audioRocketFly.stop();
+
+                    // Set rocket invisible
+                    setTimeout(() => {
+                        rocket.mesh.visible = false;
+                    }, 1000);
+                }
+            } else {
+                // In air
+                rocket.velocity.y -= (this.gravity / 15) * delta;
+            }
+
+            // Accelerate with time
+            const acceleration = Math.exp(3 * delta) - 1;
+            rocket.velocity.addScaledVector(rocket.velocity, acceleration);
+
+            rocket.mesh.position.copy(rocket.collider.center);
+        });
+    }
+
+    updateStats() {
+        this.ui.velocityStats.innerHTML = `
+        X: ${this.roundStat(this.playerVelocity.x)} <br> 
+        Y: ${this.roundStat(this.playerVelocity.y)} <br> 
+        Z: ${this.roundStat(this.playerVelocity.z)}`;
+
+        this.ui.positionStats.innerHTML = `
+        X: ${this.roundStat(this.camera.position.x)} <br> 
+        Y: ${this.roundStat(this.camera.position.y)} <br> 
+        Z: ${this.roundStat(this.camera.position.z)}`;
+
+        if (performance.now() - this.lastTime < 1000 / 1) return;
+        this.lastTime = performance.now();
+        this.drawCallPanel.update(this.renderer.info.render.calls);
+    }
+
+    // ------------------------------------------------
+    // General functions
+
+    roundStat(data) {
+        return Math.round(data * 100) / 100;
+    }
+
+    lookVector() {
+        this.camera.getWorldDirection(this.playerDirection);
+        this.playerDirection.normalize();
+        return this.playerDirection;
+    }
+
+    playerCollision() {
+        const collide = this.worldOctree.capsuleIntersect(this.playerCapsule);
+        this.isPlayerGrounded = false;
+        if (collide) {
+            this.isPlayerGrounded = collide.normal.y > 0;
+
+            this.playerCapsule.translate(
+                collide.normal.multiplyScalar(collide.depth)
+            );
+        }
+    }
+}
+
+function startAnimation() {
+    this.requestAnimId = requestAnimationFrame(this.startAnimation);
+    this.tick();
 }
 
 function stopAnimation() {
-    cancelAnimationFrame(animRequest);
-    clock.stop();
+    cancelAnimationFrame(this.requestAnimId);
+    this.clock.stop();
 }
 
-// Animate
-const tick = () => {
-    const delta = clock.getDelta();
-
-    // Call tick again on the next frame
-    animRequest = requestAnimationFrame(tick);
-
-    playerControl(delta);
-
-    playerUpdate(delta);
-
-    updateRockets(delta);
-
-    // Update objects
-    sphere.rotation.x += options.cubeRotationX * delta;
-    sphere.rotation.y += options.cubeRotationY * delta;
-
-    updateMovement(delta);
-
-    stats.update();
-
-    // Render
-    renderer.render(scene, camera);
-
-    // Stats
-    velocityStats.innerHTML = `
-    X: ${roundStat(playerVelocity.x)} <br> 
-    Y: ${roundStat(playerVelocity.y)} <br> 
-    Z: ${roundStat(playerVelocity.z)}`;
-
-    positionStats.innerHTML = `
-    X: ${roundStat(camera.position.x)} <br> 
-    Y: ${roundStat(camera.position.y)} <br> 
-    Z: ${roundStat(camera.position.z)}`;
-
-    if (performance.now() - lastTime < 1000 / 1) return;
-    lastTime = performance.now();
-    drawCallPanel.update(renderer.info.render.calls);
-};
-
-tick();
+export default new Game();
