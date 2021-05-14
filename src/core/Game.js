@@ -11,6 +11,8 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import { DiscreteInterpolant, PlaneBufferGeometry, TextureLoader } from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib';
+import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper';
 
 class Game {
     constructor() {
@@ -45,7 +47,7 @@ class Game {
 
         this.rockets = [];
         this.rocketForce = 90;
-        this.maxRockets = 20;
+        this.maxRockets = 100;
         this.rocketIdx = 0;
         this.deltaRocket = 0;
         this.frontRocketLight = null;
@@ -56,11 +58,11 @@ class Game {
         this.listener = new THREE.AudioListener();
         this.audioMap = new Map();
 
-        this.socket = io('http://localhost:3000');
-        this.socket.emit('chat message', 'hello hello');
-        this.socket.on('chat message', function (message) {
-            console.log(message);
-        });
+        // this.socket = io('http://localhost:3000');
+        // this.socket.emit('chat message', 'hello hello');
+        // this.socket.on('chat message', function (message) {
+        //     console.log(message);
+        // });
 
         this.animRequest;
         this.requestAnimId = null;
@@ -138,26 +140,14 @@ class Game {
         const rocketFly = new THREE.PositionalAudio(listener);
         const bamboo = new THREE.PositionalAudio(listener);
 
-        audioLoader.load(
-            'sounds/rocket-explode.ogg',
-            (buffer) =>
-                rocketExplode.setBuffer(buffer) &&
-                console.log('audio1 onLoad callback!'),
-            console.log('audio1 onProgress callback!')
+        audioLoader.load('sounds/rocket-explode.ogg', (buffer) =>
+            rocketExplode.setBuffer(buffer)
         );
-        audioLoader.load(
-            'sounds/rocket-flying.ogg',
-            (buffer) =>
-                rocketFly.setBuffer(buffer) &&
-                console.log('audio2 onLoad callback!'),
-            console.log('audio2 onProgress callback!')
+        audioLoader.load('sounds/rocket-flying.ogg', (buffer) =>
+            rocketFly.setBuffer(buffer)
         );
-        audioLoader.load(
-            'sounds/bamboo.mp3',
-            (buffer) =>
-                bamboo.setBuffer(buffer) &&
-                console.log('audio3 onLoad callback!'),
-            console.log('audio3 onProgress callback!')
+        audioLoader.load('sounds/bamboo.mp3', (buffer) =>
+            bamboo.setBuffer(buffer)
         );
 
         audioMap.set('rocketFly', rocketFly);
@@ -165,8 +155,6 @@ class Game {
         audioMap.set('bamboo', bamboo);
 
         loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
-            console.log('loadingManager progress...');
-
             console.log(
                 'Loading file: ' +
                     url +
@@ -199,19 +187,19 @@ class Game {
             75,
             window.innerWidth / window.innerHeight,
             0.1,
-            1000
+            2000
         );
         this.camera.add(this.listener);
 
-        const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-        ambientLight.power = 30;
-        this.scene.add(ambientLight);
+        // const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+        // ambientLight.power = 30;
+        // this.scene.add(ambientLight);
 
         // ---- MAYBE other init functions here such as field, playermodel, map, objects, rockets etc
 
         this.renderer = new THREE.WebGLRenderer();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
         this.ui.body.appendChild(this.renderer.domElement);
@@ -220,7 +208,7 @@ class Game {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
-            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
         });
 
         console.log('init scene');
@@ -240,44 +228,78 @@ class Game {
     }
 
     initMap() {
-        const gltfLoader = new GLTFLoader().setPath('models/');
-        const dracoLoader = new DRACOLoader();
-        dracoLoader.setDecoderPath('draco/');
-        gltfLoader.setDRACOLoader(dracoLoader);
-        gltfLoader.load('terrain-draco-2.glb', (gltf) => {
-            gltf.scene.traverse((model) => {
-                model.castShadow = true;
-            });
-            this.world.add(gltf.scene);
-            this.worldOctree.fromGraphNode(gltf.scene);
-        });
+        // const gltfLoader = new GLTFLoader().setPath('models/');
+        // const dracoLoader = new DRACOLoader();
+        // dracoLoader.setDecoderPath('draco/');
+        // gltfLoader.setDRACOLoader(dracoLoader);
+        // gltfLoader.load('terrain-draco-2.glb', (gltf) => {
+        //     gltf.scene.traverse((model) => {
+        //         model.castShadow = true;
+        //     });
+        //     this.world.add(gltf.scene);
+        //     this.worldOctree.fromGraphNode(gltf.scene);
+        // });
 
         // Models FBX
-        const fbxLoader = new FBXLoader().setPath('models/');
-        fbxLoader.load('rocks.fbx', (rock) => {
-            rock.traverse(function (child) {
-                if (child instanceof THREE.Mesh) {
-                    child.material.map = textureRock;
-                    child.scale.set(0.15, 0.15, 0.15);
-                    child.material.color.setHex(0xb5aa61);
-                }
-            });
-            rock.position.x = -100;
-            rock.position.z = 500;
-            rock.position.y = 0;
-            this.world.add(rock);
-            this.worldOctree.fromGraphNode(rock);
+        // const fbxLoader = new FBXLoader().setPath('models/');
+        // fbxLoader.load('rocks.fbx', (rock) => {
+        //     rock.traverse(function (child) {
+        //         if (child instanceof THREE.Mesh) {
+        //             child.material.map = textureRock;
+        //             child.scale.set(0.15, 0.15, 0.15);
+        //             child.material.color.setHex(0xb5aa61);
+        //         }
+        //     });
+        //     rock.position.x = -100;
+        //     rock.position.z = 500;
+        //     rock.position.y = 0;
+        //     this.world.add(rock);
+        //     this.worldOctree.fromGraphNode(rock);
+        // });
+
+        RectAreaLightUniformsLib.init();
+
+        const rectLight1 = new THREE.RectAreaLight(0xff0000, 5, 200, 500);
+        const rectLight2 = new THREE.RectAreaLight(0x00ff00, 5, 200, 500);
+        const rectLight3 = new THREE.RectAreaLight(0x0000ff, 5, 200, 500);
+        const rectLight4 = new THREE.RectAreaLight(0xffffff, 5, 800, 400);
+
+        const floorGeo = new THREE.BoxGeometry(2000, 0.1, 2000);
+        const floorMat = new THREE.MeshStandardMaterial({
+            color: 0x808080,
+            roughness: 0.1,
+            metalness: 0,
         });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+
+        const torusGeo = new THREE.TorusKnotGeometry(1.5, 0.5, 200, 16);
+        const torusMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0,
+            metalness: 0,
+        });
+        const torus = new THREE.Mesh(torusGeo, torusMat);
+
+        rectLight1.position.set(-500, 250, 500);
+        rectLight2.position.set(0, 250, 500);
+        rectLight3.position.set(500, 250, 500);
+        rectLight4.position.set(0, 500, -500);
+        rectLight4.rotateX(180);
+        floor.position.set(0, -2.5, 0);
+        torus.position.set(50, 50, 0);
+
+        this.scene.add(rectLight1);
+        this.scene.add(rectLight2);
+        this.scene.add(rectLight3);
+        this.scene.add(rectLight4);
+        this.scene.add(new RectAreaLightHelper(rectLight1));
+        this.scene.add(new RectAreaLightHelper(rectLight2));
+        this.scene.add(new RectAreaLightHelper(rectLight3));
+        this.scene.add(new RectAreaLightHelper(rectLight4));
+        this.world.add(torus);
+        this.world.add(floor);
 
         // TEST Objects
-        const geometry = new THREE.IcosahedronGeometry(1);
-        const floorGeometry = new THREE.PlaneBufferGeometry(
-            500,
-            2000,
-            128,
-            128
-        );
-
         const textureRock = new THREE.TextureLoader().load(
             'models/rocktexture.jpg'
         );
@@ -285,37 +307,45 @@ class Game {
         textureRock.wrapT = THREE.RepeatWrapping;
         textureRock.repeat.set(1, 1);
 
+        const spikyMaterial = new THREE.MeshPhongMaterial();
+        spikyMaterial.color = new THREE.Color(0xff109000);
+        const spikySphere = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(1),
+            spikyMaterial
+        );
+        spikySphere.castShadow = true;
+        this.world.add(spikySphere);
+
         const displacementMap = new THREE.TextureLoader().load(
             'models/heightmap.png'
         );
         displacementMap.wrapS = THREE.RepeatWrapping;
         displacementMap.wrapT = THREE.RepeatWrapping;
         displacementMap.repeat.set(1, 1);
-        const textMat = new THREE.MeshPhongMaterial({
+        const displacementMat = new THREE.MeshPhongMaterial({
             color: 'gray',
             map: textureRock,
             displacementMap: displacementMap,
             displacementScale: 200,
             displacementBias: -0.428408,
         });
+        const displacementGeo = new THREE.PlaneBufferGeometry(
+            500,
+            2000,
+            128,
+            128
+        );
+        const displacementMesh = new THREE.Mesh(
+            displacementGeo,
+            displacementMat
+        );
 
-        const floorMaterial = new THREE.MeshPhongMaterial();
-        floorMaterial.color = new THREE.Color(0xff111111);
-        const material = new THREE.MeshPhongMaterial();
-        material.color = new THREE.Color(0xff109000);
+        displacementMesh.rotation.z = Math.PI / 2;
+        displacementMesh.position.set(-500, -10, -1000);
+        displacementMesh.rotation.x = -89.5;
+        displacementMesh.receiveShadow = true;
+        this.world.add(displacementMesh);
 
-        const sphere = new THREE.Mesh(geometry, material);
-        const floor = new THREE.Mesh(floorGeometry, textMat);
-
-        floor.rotation.z = Math.PI / 2;
-        floor.position.set(-500, -10, -1000);
-        floor.rotation.x = -89.5;
-
-        sphere.castShadow = true;
-        floor.receiveShadow = true;
-
-        this.world.add(floor);
-        this.world.add(sphere);
         this.scene.add(this.world);
         this.worldOctree.fromGraphNode(this.world);
 
@@ -564,7 +594,6 @@ class Game {
             if (this.rocketIdx !== this.deltaRocket) {
                 this.deltaRocket = this.rocketIdx;
 
-                console.log('playing rocket fly...');
                 flySound.offset = 1;
                 flySound.play();
             }
@@ -579,7 +608,6 @@ class Game {
                     console.log('Rocket hit');
                     rocket.mesh.userData.isExploded = true;
 
-                    console.log(rocket.mesh.children);
                     explodeSound.offset = 0.05;
                     explodeSound.play();
                     flySound.stop();
