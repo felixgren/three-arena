@@ -1,6 +1,7 @@
 import '../style.css';
 import * as THREE from 'three';
 import * as dat from 'dat.gui';
+import io from 'socket.io-client';
 import Stats from 'three/examples/jsm/libs/stats.module';
 import { Capsule } from 'three/examples/jsm/math/Capsule';
 import { Octree } from 'three/examples/jsm/math/Octree';
@@ -54,6 +55,12 @@ class Game {
         this.audioLoader = new THREE.AudioLoader();
         this.listener = new THREE.AudioListener();
         this.audioMap = new Map();
+
+        this.socket = io('http://localhost:3000');
+        this.socket.emit('chat message', 'hello hello');
+        this.socket.on('chat message', function (message) {
+            console.log(message);
+        });
 
         this.animRequest;
         this.requestAnimId = null;
@@ -312,9 +319,8 @@ class Game {
             coolRocket.castShadow = true;
             coolRocket.receiveShadow = true;
             coolRocket.userData.isExploded = false;
-            coolRocket.userData.rocketExplode = this.audioMap.get(
-                'rocketExplode'
-            );
+            coolRocket.userData.rocketExplode =
+                this.audioMap.get('rocketExplode');
 
             this.scene.add(coolRocket);
 
