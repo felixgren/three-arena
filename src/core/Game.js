@@ -51,8 +51,8 @@ class Game {
         this.frontRocketLight = null;
         this.backRocketLight = null;
 
-        // this.loadingManager = new THREE.LoadingManager();
-        this.audioLoader = new THREE.AudioLoader();
+        this.loadingManager = new THREE.LoadingManager();
+        this.audioLoader = new THREE.AudioLoader(this.loadingManager);
         this.listener = new THREE.AudioListener();
         this.audioMap = new Map();
 
@@ -80,13 +80,15 @@ class Game {
     // Loading scene function before game is started
     load() {
         console.log('PRELOADING...');
-        this.initAudio();
-        this.initScene();
-        this.initSkybox();
-        this.initMap();
-        this.initPlayer();
-        this.initRockets();
-        this.initStats();
+
+        this.initAudio().then(() => {
+            this.initScene();
+            this.initSkybox();
+            this.initMap();
+            this.initPlayer();
+            this.initRockets();
+            this.initStats();
+        });
     }
 
     // Init function when game starts
@@ -126,31 +128,66 @@ class Game {
     // Main init functions during loading screen
 
     initAudio() {
+        console.log('init audio');
+        const loadingManager = this.loadingManager;
         const audioLoader = this.audioLoader;
         const audioMap = this.audioMap;
         const listener = this.listener;
 
         const rocketExplode = new THREE.PositionalAudio(listener);
         const rocketFly = new THREE.PositionalAudio(listener);
+        const bamboo = new THREE.PositionalAudio(listener);
 
         audioLoader.load(
             'sounds/rocket-explode.ogg',
             (buffer) =>
                 rocketExplode.setBuffer(buffer) &&
-                console.log('-- loaded audio 1'),
-            console.log('-- loading audio one...')
+                console.log('audio1 onLoad callback!'),
+            console.log('audio1 onProgress callback!')
         );
         audioLoader.load(
             'sounds/rocket-flying.ogg',
             (buffer) =>
                 rocketFly.setBuffer(buffer) &&
-                console.log('-- loaded audio 2!'),
-            console.log('-- loading audio two...')
+                console.log('audio2 onLoad callback!'),
+            console.log('audio2 onProgress callback!')
+        );
+        audioLoader.load(
+            'sounds/bamboo.mp3',
+            (buffer) =>
+                bamboo.setBuffer(buffer) &&
+                console.log('audio3 onLoad callback!'),
+            console.log('audio3 onProgress callback!')
         );
 
         audioMap.set('rocketFly', rocketFly);
         audioMap.set('rocketExplode', rocketExplode);
-        console.log('init audio');
+        audioMap.set('bamboo', bamboo);
+
+        loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+            console.log('loadingManager progress...');
+
+            console.log(
+                'Loading file: ' +
+                    url +
+                    '.\nLoaded ' +
+                    itemsLoaded +
+                    ' of ' +
+                    itemsTotal +
+                    ' files.'
+            );
+        };
+
+        loadingManager.onError = function (url) {
+            console.log('There was an error loading ' + url);
+        };
+
+        return new Promise((resolve) => {
+            loadingManager.onLoad = () => {
+                resolve();
+                console.log('All loading completed!');
+            };
+        });
     }
 
     initScene() {
@@ -319,8 +356,15 @@ class Game {
             coolRocket.castShadow = true;
             coolRocket.receiveShadow = true;
             coolRocket.userData.isExploded = false;
-            coolRocket.userData.rocketExplode =
-                this.audioMap.get('rocketExplode');
+
+            const audioFly = this.createAudioInstance(
+                this.audioMap.get('rocketFly')
+            );
+            const audioExplode = this.createAudioInstance(
+                this.audioMap.get('rocketExplode')
+            );
+            coolRocket.add(audioFly);
+            coolRocket.add(audioExplode);
 
             this.scene.add(coolRocket);
 
@@ -393,9 +437,6 @@ class Game {
             this.backRocketLight.power = 100;
             this.frontRocketLight.distance = 10;
             this.backRocketLight.distance = 10; // use for animation
-
-            // console.log(rocket.mesh.userData);
-            // rocket.mesh.add(rocket.mesh.userData.rocketExplode);
 
             // Copy player head pos to projectile center
             rocket.collider.center.copy(this.playerCapsule.end);
@@ -517,16 +558,15 @@ class Game {
                 airRocketIdx = this.rocketIdx;
             }
 
-            // const audioRocketFly = this.rockets[airRocketIdx].mesh.children[1];
-            // const audioRocketExplode = this.rockets[airRocketIdx].mesh
-            //     .children[0];
+            const flySound = this.rockets[airRocketIdx].mesh.children[0];
+            const explodeSound = this.rockets[airRocketIdx].mesh.children[1];
 
             if (this.rocketIdx !== this.deltaRocket) {
                 this.deltaRocket = this.rocketIdx;
 
-                const audio = this.audioMap.get('rocketFly');
-                audio.offset = 1;
-                audio.play();
+                console.log('playing rocket fly...');
+                flySound.offset = 1;
+                flySound.play();
             }
 
             // On hit
@@ -539,11 +579,10 @@ class Game {
                     console.log('Rocket hit');
                     rocket.mesh.userData.isExploded = true;
 
-                    const audio = this.audioMap.get('rocketExplode');
-                    audio.offset = 0.05;
-                    audio.play();
-                    this.audioMap.get('rocketFly').stop();
-                    // rocket.mesh.children[2].play();
+                    console.log(rocket.mesh.children);
+                    explodeSound.offset = 0.05;
+                    explodeSound.play();
+                    flySound.stop();
 
                     // Set rocket invisible
                     setTimeout(() => {
@@ -602,6 +641,13 @@ class Game {
                 collide.normal.multiplyScalar(collide.depth)
             );
         }
+    }
+
+    createAudioInstance(source) {
+        const audio = new source.constructor(source.listener);
+        audio.buffer = source.buffer;
+
+        return audio;
     }
 }
 
