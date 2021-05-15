@@ -6,7 +6,8 @@
     "scripts": {
         "build": "webpack --config ./bundler/webpack.prod.js",
         "dev": "webpack serve --config ./bundler/webpack.dev.js",
-        "start": "npm run dev"
+        "start": "npm run dev",
+        "server": "npm start --prefix server"
     },
     "devDependencies": {
         "@babel/core": "^7.13.16",
@@ -30,6 +31,7 @@
     },
     "dependencies": {
         "dat.gui": "^0.7.7",
+        "socket.io-client": "^4.1.1",
         "three": "^0.128.0"
     }
 }
