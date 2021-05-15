@@ -13,6 +13,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib';
 import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper';
+import { Sprite, SpriteMaterial, OrthographicCamera, Scene } from 'three';
 
 class Game {
     constructor() {
@@ -53,6 +54,9 @@ class Game {
         this.frontRocketLight = null;
         this.backRocketLight = null;
 
+        this.textureLoader = new THREE.TextureLoader();
+        this.textureMap = new Map();
+
         this.loadingManager = new THREE.LoadingManager();
         this.audioLoader = new THREE.AudioLoader(this.loadingManager);
         this.listener = new THREE.AudioListener();
@@ -74,8 +78,7 @@ class Game {
             pauseButton: document.querySelector('.pause-button'),
             velocityStats: document.querySelector('.velocity-stats'),
             positionStats: document.querySelector('.position-stats'),
-            // crosshair: (document.querySelector('.crosshair').src =
-            //     'images/crosshair.png'),
+            crosshair: null,
         };
     }
 
@@ -88,6 +91,7 @@ class Game {
             this.initSkybox();
             this.initMap();
             this.initPlayer();
+            this.initCrosshair();
             this.initRockets();
             this.initStats();
         });
@@ -123,6 +127,10 @@ class Game {
 
         this.renderer.render(this.scene, this.camera);
 
+        this.renderer.autoClear = false;
+
+        this.renderer.render(this.hudScene, this.hudCamera);
+
         this.updateStats();
     }
 
@@ -138,7 +146,6 @@ class Game {
 
         const rocketExplode = new THREE.PositionalAudio(listener);
         const rocketFly = new THREE.PositionalAudio(listener);
-        const bamboo = new THREE.PositionalAudio(listener);
 
         audioLoader.load('sounds/rocket-explode.ogg', (buffer) =>
             rocketExplode.setBuffer(buffer)
@@ -146,13 +153,9 @@ class Game {
         audioLoader.load('sounds/rocket-flying.ogg', (buffer) =>
             rocketFly.setBuffer(buffer)
         );
-        audioLoader.load('sounds/bamboo.mp3', (buffer) =>
-            bamboo.setBuffer(buffer)
-        );
 
         audioMap.set('rocketFly', rocketFly);
         audioMap.set('rocketExplode', rocketExplode);
-        audioMap.set('bamboo', bamboo);
 
         loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
             console.log(
@@ -208,6 +211,7 @@ class Game {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.hudSetSize(window.innerWidth, window.innerHeight);
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
         });
 
@@ -365,6 +369,44 @@ class Game {
         );
 
         console.log('init player');
+    }
+
+    initCrosshair() {
+        console.log('begin init crosshair');
+        const textureLoader = this.textureLoader;
+
+        let texture = textureLoader.load('images/crosshair.png');
+        texture.matrixAutoUpdate = false;
+        this.textureMap.set('crosshair', texture);
+
+        const crosshairTexture = this.textureMap.get('crosshair');
+        const crosshairMat = new SpriteMaterial({
+            map: crosshairTexture,
+            opacity: 1,
+        });
+
+        const crosshair = new Sprite(crosshairMat);
+        crosshair.matrixAutoUpdate = false;
+        crosshair.visible = true;
+        crosshair.position.set(0, 0, 2);
+        crosshair.scale.set(70, 70, 1);
+        crosshair.updateMatrix();
+
+        this.ui.crosshair = crosshair;
+
+        this.hudCamera = new OrthographicCamera(
+            -window.innerWidth / 2,
+            window.innerWidth / 2,
+            window.innerHeight / 2,
+            -window.innerHeight / 2,
+            1,
+            10
+        );
+        this.hudCamera.position.z = 10;
+        this.hudScene = new Scene();
+        this.hudScene.add(crosshair);
+
+        return this;
     }
 
     initRockets() {
@@ -676,6 +718,16 @@ class Game {
         audio.buffer = source.buffer;
 
         return audio;
+    }
+
+    hudSetSize(width, height) {
+        this.hudCamera.left = -width / 2;
+        this.hudCamera.right = width / 2;
+        this.hudCamera.top = height / 2;
+        this.hudCamera.bottom = -height / 2;
+        this.hudCamera.updateProjectionMatrix();
+
+        return this;
     }
 }
 
