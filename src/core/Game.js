@@ -57,6 +57,9 @@ class Game {
         this.textureLoader = new THREE.TextureLoader();
         this.textureMap = new Map();
 
+        this.elaspedTime = 0;
+        this.chatMessages = new Array();
+
         this.loadingManager = new THREE.LoadingManager();
         this.audioLoader = new THREE.AudioLoader(this.loadingManager);
         this.listener = new THREE.AudioListener();
@@ -78,6 +81,8 @@ class Game {
             pauseButton: document.querySelector('.pause-button'),
             velocityStats: document.querySelector('.velocity-stats'),
             positionStats: document.querySelector('.position-stats'),
+            chatSection: document.getElementById('chatSection'),
+            chatList: document.getElementById('chatList'),
             crosshair: null,
         };
     }
@@ -94,6 +99,7 @@ class Game {
             this.initCrosshair();
             this.initRockets();
             this.initStats();
+            this.initSocket();
         });
     }
 
@@ -105,6 +111,27 @@ class Game {
         this.activateMovement();
         this.activateRocketShooting();
         this.startAnimation(); // Starts tick function
+
+        this.addChatMessage('player1', 'hello hello hello!');
+
+        setTimeout(() => {
+            this.addChatMessage('player2', 'hey whats up!!');
+        }, 5000);
+
+        setTimeout(() => {
+            this.addChatMessage('player3', 'hey up!!');
+        }, 6000);
+
+        setTimeout(() => {
+            this.addChatMessage('player4', 'whats up!!');
+        }, 7000);
+
+        setTimeout(() => {
+            this.addChatMessage(
+                'player5',
+                'up!! yeah im a reaaaaly LOOOOOOOOONG message wow!!!!!1111'
+            );
+        }, 8000);
     }
 
     pauseGame() {
@@ -117,21 +144,106 @@ class Game {
     // Main update game function
     tick() {
         const delta = this.clock.getDelta();
+        this.elaspedTime += delta;
 
         this.updatePlayerControl(delta);
         this.updateCheckOnGround(delta);
         this.updatePlayerMovement(delta);
         this.updateRockets(delta);
+        this.updateStats();
+        this.updateChatList();
 
         this.stats.update();
-
         this.renderer.render(this.scene, this.camera);
-
         this.renderer.autoClear = false;
-
         this.renderer.render(this.hudScene, this.hudCamera);
+    }
 
-        this.updateStats();
+    initSocket() {
+        console.log('init socket');
+        this.socket = io('http://localhost:3000');
+
+        this.socket.on('connect', () => {
+            console.log(`I am ${this.socket.id}`);
+        });
+
+        this.socket.on('player connect', (playerId) => {
+            console.log(`${playerId} joined the session!`);
+            this.addChatMessage(playerId, 'I am here');
+        });
+
+        this.socket.on('player disconnect', (playerId) => {
+            console.log(`${playerId} has left us...`);
+            this.addChatMessage(playerId, 'has left us...');
+        });
+
+        this.socket.on('connect', () => {
+            setTimeout(() => {
+                this.socket.emit(
+                    'chat message',
+                    this.socket.id,
+                    'sooo anyway.. now what? '
+                );
+            }, 5000);
+            this.socket.on('chat message', (message, message2) => {
+                this.addChatMessage(message, message2);
+            });
+        });
+    }
+
+    updateChatList() {
+        const chatMessages = this.chatMessages;
+
+        for (let i = chatMessages.length - 1; i >= 0; i--) {
+            const message = chatMessages[i];
+
+            if (this.elaspedTime >= message.endTime) {
+                chatMessages.splice(i, 1);
+
+                const chatList = this.ui.chatList;
+                chatList.removeChild(message.ui);
+            }
+        }
+
+        if (chatMessages.length === 0) {
+            this.ui.chatSection.classList.add('hidden');
+        }
+
+        return this;
+    }
+
+    addChatMessage(username, message) {
+        this.ui.chatSection.classList.remove('hidden');
+
+        const string = `${username} says ${message}`;
+
+        const usernameSpan = document.createElement('span');
+        usernameSpan.style.color = '#0fff00';
+        usernameSpan.textContent = username;
+
+        const middleSpan = document.createElement('span');
+        middleSpan.textContent = ': ';
+
+        const messageSpan = document.createElement('span');
+        messageSpan.style.color = '#ffffff';
+        messageSpan.textContent = message;
+
+        const MsgText = document.createElement('li');
+        MsgText.appendChild(usernameSpan);
+        MsgText.appendChild(middleSpan);
+        MsgText.appendChild(messageSpan);
+
+        const chatMessage = {
+            text: string,
+            endTime: this.elaspedTime + 10,
+            ui: MsgText,
+        };
+
+        this.chatMessages.push(chatMessage);
+        const chatList = this.ui.chatList;
+        chatList.appendChild(MsgText);
+
+        return this;
     }
 
     // ------------------------------------------------
@@ -372,7 +484,6 @@ class Game {
     }
 
     initCrosshair() {
-        console.log('begin init crosshair');
         const textureLoader = this.textureLoader;
 
         let texture = textureLoader.load('images/crosshair.png');
@@ -406,6 +517,7 @@ class Game {
         this.hudScene = new Scene();
         this.hudScene.add(crosshair);
 
+        console.log('init crosshair');
         return this;
     }
 

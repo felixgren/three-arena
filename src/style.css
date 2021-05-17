@@ -6,7 +6,7 @@
 html,
 body {
     height: 100vh;
-    font-family: 'Poppins';
+    font-family: 'Roboto', sans-serif;
 }
 
 .webgl {
@@ -39,7 +39,7 @@ body {
     border-radius: 0.12em;
     box-sizing: border-box;
     text-decoration: none;
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Arial', sans-serif;
     font-weight: 300;
     color: #ffffff;
     text-align: center;
@@ -57,6 +57,44 @@ body {
     left: calc(50% - 100px);
     font-size: 40px;
     cursor: pointer;
+}
+
+#chatSection {
+    left: 4%;
+    bottom: 4%;
+    position: absolute;
+    border-radius: 3px;
+}
+
+#chatList {
+    list-style-type: none;
+    font-size: 16px;
+    text-align: left;
+    font-family: 'Roboto Mono', monospace;
+}
+
+.chatContainer {
+    background-color: #4e4e4eaf;
+    font-size: 28px;
+    color: #ffffff;
+    text-align: center;
+    line-height: 20px;
+}
+.chatContainer > div {
+    padding: 4px;
+}
+.chatContainer > div > span {
+    display: inline-block;
+}
+.chatContainer > div > ul > li:not(:first-child) {
+    border-top: 1px solid #6b6b6b60;
+}
+.chatContainer > div > ul > li {
+    padding: 4px;
+}
+
+.hidden {
+    display: none;
 }
 
 /* .crosshair {

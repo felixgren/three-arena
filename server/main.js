@@ -20,13 +20,15 @@ io.on('connection', function (socket) {
     console.log(`${socket.id} connected`);
     socket.emit('setId', { id: socket.id });
 
+    socket.broadcast.emit('player connect', socket.id);
+
     socket.on('disconnect', function () {
         console.log('A user disconnected');
+        socket.broadcast.emit('player disconnect', socket.id);
     });
 
-    socket.on('chat message', function (msg) {
-        console.log(msg);
-        socket.broadcast.emit('chat message', msg);
+    socket.on('chat message', function (msg, msg2) {
+        socket.broadcast.emit('chat message', msg, msg2);
     });
 });
 
