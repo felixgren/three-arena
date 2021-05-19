@@ -167,8 +167,19 @@ class Game {
         this.camera.add(this.listener);
 
         const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-        ambientLight.power = 30;
+        ambientLight.power = 15;
         this.scene.add(ambientLight);
+
+        // const dirLight = new THREE.DirectionalLight(0xffffff, 0.3); // Exposes terrain vertices
+        // dirLight.position.set(40, 100, 1);
+        // dirLight.target.position.set(0, 0, 0);
+        // this.scene.add(dirLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 0.5);
+        const pointLightHelper = new THREE.PointLightHelper(pointLight, 0.5);
+        pointLight.position.set(50, 300, 0);
+        this.scene.add(pointLight);
+        this.scene.add(pointLightHelper);
 
         // ---- MAYBE other init functions here such as field, playermodel, map, objects, rockets etc
 
@@ -203,40 +214,43 @@ class Game {
     }
 
     initMap() {
+        // const groundTexture = new THREE.TextureLoader().load(
+        //     'models/venus.png'
+        // );
+
         const gltfLoader = new GLTFLoader().setPath('models/');
         const dracoLoader = new DRACOLoader();
         dracoLoader.setDecoderPath('draco/');
         gltfLoader.setDRACOLoader(dracoLoader);
-        gltfLoader.load('terrain-draco-2.glb', (gltf) => {
-            gltf.scene.traverse((model) => {
-                model.castShadow = true;
-            });
+        gltfLoader.load('planet.glb', (gltf) => {
+            gltf.scene.traverse((model) => {});
             this.world.add(gltf.scene);
             this.worldOctree.fromGraphNode(gltf.scene);
         });
 
         // Models FBX
-        const fbxLoader = new FBXLoader().setPath('models/');
-        fbxLoader.load('rocks.fbx', (rock) => {
-            rock.traverse(function (child) {
-                if (child instanceof THREE.Mesh) {
-                    child.material.map = textureRock;
-                    child.scale.set(0.15, 0.15, 0.15);
-                    child.material.color.setHex(0xb5aa61);
-                }
-            });
-            rock.position.x = -100;
-            rock.position.z = 500;
-            rock.position.y = 0;
-            this.world.add(rock);
-            this.worldOctree.fromGraphNode(rock);
-        });
+        // const fbxLoader = new FBXLoader().setPath('models/');
+        // fbxLoader.load('odyssey.fbx', (rock) => {
+        //     rock.traverse(function (child) {
+        //         if (child instanceof THREE.Mesh) {
+        //             // child.material.map = textureRock;
+        //             child.scale.setScalar(0.0045);
+        //             child.material.color.setHex(0xffffff);
+        //         }
+        //     });
+        //     rock.position.x = -150;
+        //     rock.position.z = 240;
+        //     rock.position.y = 200;
+        //     this.world.add(rock);
+        //     this.worldOctree.fromGraphNode(rock);
+        // });
 
         // TEST Objects
         const geometry = new THREE.IcosahedronGeometry(1);
-        const floorGeometry = new THREE.PlaneBufferGeometry(
-            500,
-            2000,
+        const bgGeometry = new THREE.PlaneBufferGeometry(500, 1200, 128, 128);
+        const bgGeometryVariant = new THREE.PlaneBufferGeometry(
+            420,
+            1400,
             128,
             128
         );
@@ -249,35 +263,52 @@ class Game {
         textureRock.repeat.set(1, 1);
 
         const displacementMap = new THREE.TextureLoader().load(
-            'models/heightmap.png'
+            'models/heightmap2.png'
         );
         displacementMap.wrapS = THREE.RepeatWrapping;
         displacementMap.wrapT = THREE.RepeatWrapping;
         displacementMap.repeat.set(1, 1);
         const textMat = new THREE.MeshPhongMaterial({
-            color: 'gray',
+            color: '#82553C',
             map: textureRock,
             displacementMap: displacementMap,
-            displacementScale: 200,
+            displacementScale: 350,
             displacementBias: -0.428408,
         });
 
-        const floorMaterial = new THREE.MeshPhongMaterial();
-        floorMaterial.color = new THREE.Color(0xff111111);
+        const bgMaterial = new THREE.MeshPhongMaterial();
+        bgMaterial.color = new THREE.Color(0xff111111);
         const material = new THREE.MeshPhongMaterial();
         material.color = new THREE.Color(0xff109000);
 
         const sphere = new THREE.Mesh(geometry, material);
-        const floor = new THREE.Mesh(floorGeometry, textMat);
+        const bgSouth = new THREE.Mesh(bgGeometry, textMat);
+        const bgNorth = new THREE.Mesh(bgGeometry, textMat);
+        const bgEast = new THREE.Mesh(bgGeometryVariant, textMat);
+        const bgWest = new THREE.Mesh(bgGeometryVariant, textMat);
 
-        floor.rotation.z = Math.PI / 2;
-        floor.position.set(-500, -10, -1000);
-        floor.rotation.x = -89.5;
+        bgSouth.rotation.z = Math.PI / 2;
+        bgSouth.position.set(-400, 0, -550);
+        bgSouth.rotation.x = -89.61;
+
+        bgNorth.rotation.z = Math.PI / 2;
+        bgNorth.position.set(-400, 0, 910);
+        bgNorth.rotation.x = -89.5;
+
+        bgEast.position.set(270, 0, 170);
+        bgEast.rotation.x = -89.5;
+
+        bgWest.position.set(-1200, 0, 210);
+        bgWest.rotation.x = -89.5;
 
         sphere.castShadow = true;
-        floor.receiveShadow = true;
+        // No need (?)
+        bgSouth.receiveShadow = true;
 
-        this.world.add(floor);
+        // this.world.add(bgSouth);
+        // this.world.add(bgNorth);
+        // this.world.add(bgEast);
+        // this.world.add(bgWest);
         this.world.add(sphere);
         this.scene.add(this.world);
         this.worldOctree.fromGraphNode(this.world);
