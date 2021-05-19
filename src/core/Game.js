@@ -161,7 +161,7 @@ class Game {
 
     initSocket() {
         console.log('init socket');
-        this.socket = io('http://localhost:3000');
+        this.socket = io('https://arenaserver.herokuapp.com');
 
         this.socket.on('connect', () => {
             console.log(`I am ${this.socket.id}`);
