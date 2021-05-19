@@ -65,12 +65,6 @@ class Game {
         this.listener = new THREE.AudioListener();
         this.audioMap = new Map();
 
-        // this.socket = io('http://localhost:3000');
-        // this.socket.emit('chat message', 'hello hello');
-        // this.socket.on('chat message', function (message) {
-        //     console.log(message);
-        // });
-
         this.animRequest;
         this.requestAnimId = null;
         this.startAnimation = startAnimation.bind(this);
@@ -111,27 +105,7 @@ class Game {
         this.activateMovement();
         this.activateRocketShooting();
         this.startAnimation(); // Starts tick function
-
-        this.addChatMessage('player1', 'hello hello hello!');
-
-        setTimeout(() => {
-            this.addChatMessage('player2', 'hey whats up!!');
-        }, 5000);
-
-        setTimeout(() => {
-            this.addChatMessage('player3', 'hey up!!');
-        }, 6000);
-
-        setTimeout(() => {
-            this.addChatMessage('player4', 'whats up!!');
-        }, 7000);
-
-        setTimeout(() => {
-            this.addChatMessage(
-                'player5',
-                'up!! yeah im a reaaaaly LOOOOOOOOONG message wow!!!!!1111'
-            );
-        }, 8000);
+        this.addChatMessage('Admin', 'Welcome to three arena.');
     }
 
     pauseGame() {
@@ -150,100 +124,13 @@ class Game {
         this.updateCheckOnGround(delta);
         this.updatePlayerMovement(delta);
         this.updateRockets(delta);
-        this.updateStats();
         this.updateChatList();
+        this.updateStats();
 
         this.stats.update();
         this.renderer.render(this.scene, this.camera);
         this.renderer.autoClear = false;
         this.renderer.render(this.hudScene, this.hudCamera);
-    }
-
-    initSocket() {
-        console.log('init socket');
-        this.socket = io('https://arenaserver.herokuapp.com');
-
-        this.socket.on('connect', () => {
-            console.log(`I am ${this.socket.id}`);
-        });
-
-        this.socket.on('player connect', (playerId) => {
-            console.log(`${playerId} joined the session!`);
-            this.addChatMessage(playerId, 'I am here');
-        });
-
-        this.socket.on('player disconnect', (playerId) => {
-            console.log(`${playerId} has left us...`);
-            this.addChatMessage(playerId, 'has left us...');
-        });
-
-        this.socket.on('connect', () => {
-            setTimeout(() => {
-                this.socket.emit(
-                    'chat message',
-                    this.socket.id,
-                    'sooo anyway.. now what? '
-                );
-            }, 5000);
-            this.socket.on('chat message', (message, message2) => {
-                this.addChatMessage(message, message2);
-            });
-        });
-    }
-
-    updateChatList() {
-        const chatMessages = this.chatMessages;
-
-        for (let i = chatMessages.length - 1; i >= 0; i--) {
-            const message = chatMessages[i];
-
-            if (this.elaspedTime >= message.endTime) {
-                chatMessages.splice(i, 1);
-
-                const chatList = this.ui.chatList;
-                chatList.removeChild(message.ui);
-            }
-        }
-
-        if (chatMessages.length === 0) {
-            this.ui.chatSection.classList.add('hidden');
-        }
-
-        return this;
-    }
-
-    addChatMessage(username, message) {
-        this.ui.chatSection.classList.remove('hidden');
-
-        const string = `${username} says ${message}`;
-
-        const usernameSpan = document.createElement('span');
-        usernameSpan.style.color = '#0fff00';
-        usernameSpan.textContent = username;
-
-        const middleSpan = document.createElement('span');
-        middleSpan.textContent = ': ';
-
-        const messageSpan = document.createElement('span');
-        messageSpan.style.color = '#ffffff';
-        messageSpan.textContent = message;
-
-        const MsgText = document.createElement('li');
-        MsgText.appendChild(usernameSpan);
-        MsgText.appendChild(middleSpan);
-        MsgText.appendChild(messageSpan);
-
-        const chatMessage = {
-            text: string,
-            endTime: this.elaspedTime + 10,
-            ui: MsgText,
-        };
-
-        this.chatMessages.push(chatMessage);
-        const chatList = this.ui.chatList;
-        chatList.appendChild(MsgText);
-
-        return this;
     }
 
     // ------------------------------------------------
@@ -258,16 +145,23 @@ class Game {
 
         const rocketExplode = new THREE.PositionalAudio(listener);
         const rocketFly = new THREE.PositionalAudio(listener);
+        const bamboo = new THREE.PositionalAudio(listener);
 
         audioLoader.load('sounds/rocket-explode.ogg', (buffer) =>
             rocketExplode.setBuffer(buffer)
         );
+
         audioLoader.load('sounds/rocket-flying.ogg', (buffer) =>
             rocketFly.setBuffer(buffer)
         );
 
+        audioLoader.load('sounds/bamboo.mp3', (buffer) =>
+            bamboo.setBuffer(buffer)
+        );
+
         audioMap.set('rocketFly', rocketFly);
         audioMap.set('rocketExplode', rocketExplode);
+        audioMap.set('bamboo', bamboo);
 
         loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
             console.log(
@@ -573,6 +467,38 @@ class Game {
         this.lastTime = performance.now();
     }
 
+    initSocket() {
+        console.log('init socket');
+        this.socket = io('https://arenaserver.herokuapp.com');
+
+        this.socket.on('connect', () => {
+            console.log(`I am ${this.socket.id}`);
+        });
+
+        this.socket.on('player connect', (playerId) => {
+            console.log(`${playerId} joined the session!`);
+            this.addChatMessage(playerId, 'I am here');
+        });
+
+        this.socket.on('player disconnect', (playerId) => {
+            console.log(`${playerId} has left us...`);
+            this.addChatMessage(playerId, 'has left us...');
+        });
+
+        this.socket.on('connect', () => {
+            setTimeout(() => {
+                this.socket.emit(
+                    'chat message',
+                    this.socket.id,
+                    'sooo anyway.. now what? '
+                );
+            }, 5000);
+            this.socket.on('chat message', (message, message2) => {
+                this.addChatMessage(message, message2);
+            });
+        });
+    }
+
     // ------------------------------------------------
     // Activate functions when game starts
 
@@ -688,14 +614,14 @@ class Game {
     }
 
     updateCheckOnGround(delta) {
-        this.isPlayerGrounded &&
+        if (this.isPlayerGrounded) {
             this.playerVelocity.addScaledVector(
                 this.playerVelocity,
                 -5 * delta
             );
-        !this.isPlayerGrounded
-            ? (this.playerVelocity.y -= this.gravity * delta)
-            : (this.playerVelocity.y = 0);
+        } else {
+            this.playerVelocity.y -= this.gravity * delta;
+        }
     }
 
     updatePlayerMovement(delta) {
@@ -784,6 +710,27 @@ class Game {
         });
     }
 
+    updateChatList() {
+        const chatMessages = this.chatMessages;
+
+        for (let i = chatMessages.length - 1; i >= 0; i--) {
+            const message = chatMessages[i];
+
+            if (this.elaspedTime >= message.endTime) {
+                chatMessages.splice(i, 1);
+
+                const chatList = this.ui.chatList;
+                chatList.removeChild(message.ui);
+            }
+        }
+
+        if (chatMessages.length === 0) {
+            this.ui.chatSection.classList.add('hidden');
+        }
+
+        return this;
+    }
+
     updateStats() {
         this.ui.velocityStats.innerHTML = `
         X: ${this.roundStat(this.playerVelocity.x)} <br> 
@@ -802,6 +749,40 @@ class Game {
 
     // ------------------------------------------------
     // General functions
+
+    addChatMessage(username, message) {
+        this.ui.chatSection.classList.remove('hidden');
+
+        const string = `${username} says ${message}`;
+
+        const usernameSpan = document.createElement('span');
+        usernameSpan.style.color = '#0fff00';
+        usernameSpan.textContent = username;
+
+        const middleSpan = document.createElement('span');
+        middleSpan.textContent = ': ';
+
+        const messageSpan = document.createElement('span');
+        messageSpan.style.color = '#ffffff';
+        messageSpan.textContent = message;
+
+        const MsgText = document.createElement('li');
+        MsgText.appendChild(usernameSpan);
+        MsgText.appendChild(middleSpan);
+        MsgText.appendChild(messageSpan);
+
+        const chatMessage = {
+            text: string,
+            endTime: this.elaspedTime + 10,
+            ui: MsgText,
+        };
+
+        this.chatMessages.push(chatMessage);
+        const chatList = this.ui.chatList;
+        chatList.appendChild(MsgText);
+
+        return this;
+    }
 
     roundStat(data) {
         return Math.round(data * 100) / 100;
