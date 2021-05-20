@@ -76,7 +76,7 @@ class Game {
             velocityStats: document.querySelector('.velocity-stats'),
             positionStats: document.querySelector('.position-stats'),
             chatSection: document.getElementById('chatSection'),
-            chatList: document.getElementById('chatList'),
+            chatList: document.querySelector('.chatList'),
             crosshair: null,
         };
     }
@@ -486,13 +486,6 @@ class Game {
         });
 
         this.socket.on('connect', () => {
-            setTimeout(() => {
-                this.socket.emit(
-                    'chat message',
-                    this.socket.id,
-                    'sooo anyway.. now what? '
-                );
-            }, 5000);
             this.socket.on('chat message', (message, message2) => {
                 this.addChatMessage(message, message2);
             });
@@ -524,6 +517,9 @@ class Game {
     activateMovement() {
         document.addEventListener('keydown', (event) => {
             this.Key[event.key] = true;
+            if (event.key == 'Enter') {
+                event.preventDefault();
+            }
         });
         document.addEventListener('keyup', (event) => {
             this.Key[event.key] = false;
@@ -610,6 +606,21 @@ class Game {
         }
         if (this.Key['e']) {
             this.playerVelocity.set(0, 0, 0);
+        }
+        if (this.Key['t']) {
+            openForm();
+        }
+        if (this.Key['Enter']) {
+            closeForm();
+            let inputText = document.getElementById('inputText');
+            if (inputText.value !== '') {
+                this.socket.emit(
+                    'chat message',
+                    this.socket.id,
+                    inputText.value
+                );
+                inputText.value = '';
+            }
         }
     }
 
@@ -832,6 +843,15 @@ function startAnimation() {
 function stopAnimation() {
     cancelAnimationFrame(this.requestAnimId);
     this.clock.stop();
+}
+
+function openForm() {
+    document.getElementById('inputForm').style.display = 'block';
+    document.getElementById('inputText').focus();
+}
+
+function closeForm() {
+    document.getElementById('inputForm').style.display = 'none';
 }
 
 export default new Game();
