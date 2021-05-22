@@ -32,6 +32,7 @@ class Game {
         this.drawCallPanel = null;
 
         this.player = null;
+        this.players = null;
         this.playerCapsule = null;
         this.isPlayerGrounded = false;
         this.playerSpeed = 30;
@@ -94,6 +95,7 @@ class Game {
             this.initRockets();
             this.initStats();
             this.initSocket();
+            this.createCloneCube();
         });
     }
 
@@ -126,11 +128,26 @@ class Game {
         this.updateRockets(delta);
         this.updateChatList();
         this.updateStats();
+        this.updateCloneCube();
 
         this.stats.update();
         this.renderer.render(this.scene, this.camera);
         this.renderer.autoClear = false;
         this.renderer.render(this.hudScene, this.hudCamera);
+    }
+
+    createCloneCube() {
+        const geometry = new THREE.BoxGeometry();
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        this.cube = new THREE.Mesh(geometry, material);
+        this.scene.add(this.cube);
+        // this.cube.position.set(10, 2, 10);
+    }
+
+    updateCloneCube() {
+        const position = this.playerCapsule.end;
+        this.cube.position.set(position.x + 2, position.y + 2, position.z + 2);
+        // this.cube.lookAt(this.lookVector());
     }
 
     // ------------------------------------------------
@@ -469,19 +486,55 @@ class Game {
 
     initSocket() {
         console.log('init socket');
-        this.socket = io('https://arenaserver.herokuapp.com');
+        this.socket = io('http://localhost:3000');
+
+        this.player = {};
+        this.players = {};
 
         this.socket.on('connect', () => {
-            console.log(`I am ${this.socket.id}`);
+            this.socket.on('initPlayer', (data, playerCount, playerIDs) => {
+                this.player.id = data.id;
+                console.log(
+                    `I am ${this.socket.id}, the ${playerCount}${
+                        playerCount <= 1
+                            ? 'st'
+                            : playerCount == 2
+                            ? 'nd'
+                            : playerCount == 3
+                            ? 'rd'
+                            : 'th'
+                    } player`
+                );
+
+                console.log(playerIDs);
+
+                // Check all that isn't local player
+                for (let i = 0; i < playerCount; i++) {
+                    if (playerIDs[i] !== this.player.id) {
+                        console.log(
+                            `${playerIDs[i]} needs to be added to the world...`
+                        );
+                        this.initRemotePlayer(playerIDs[i]);
+                    }
+                }
+            });
+            console.log(this.player);
         });
 
-        this.socket.on('player connect', (playerId) => {
+        this.socket.on('playerPositions', (data) => {
+            console.log(data);
+            this.updateRemotePlayers(data);
+        });
+
+        this.socket.on('player connect', (playerId, playerCount) => {
             console.log(`${playerId} joined the session!`);
+            console.log(`There are now ${playerCount} players`);
             this.addChatMessage(playerId, 'I am here');
         });
 
-        this.socket.on('player disconnect', (playerId) => {
+        this.socket.on('player disconnect', (playerId, playerCount) => {
             console.log(`${playerId} has left us...`);
+            console.log(`There are now ${playerCount} players`);
             this.addChatMessage(playerId, 'has left us...');
         });
 
@@ -490,6 +543,51 @@ class Game {
                 this.addChatMessage(message, message2);
             });
         });
+    }
+
+    initRemotePlayer(playerID) {
+        console.log(`i am going to add ${playerID}!!111`);
+
+        const remotePlayer = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshBasicMaterial({ color: 0x00ffff })
+        );
+
+        remotePlayer.position.set(0, 0, 0);
+
+        this.scene.add(remotePlayer);
+
+        // this.player.id = data.id;
+
+        this.players[playerID] = {};
+        this.players[playerID].mesh = remotePlayer;
+        this.players[playerID].positionSync = new THREE.Vector3();
+    }
+
+    updateRemotePlayers(remotePlayers) {
+        for (let id in remotePlayers) {
+            if (id != this.player.id) {
+                this.players[id].positionSync = new THREE.Vector3().fromArray(
+                    remotePlayers[id].position
+                );
+                // console.log('i have updated!');
+                // console.log(this.players[id].positionSync.x);
+
+                this.players[id].mesh.position.set(
+                    this.players[id].positionSync.x,
+                    this.players[id].positionSync.y,
+                    this.players[id].positionSync.z
+                );
+            }
+        }
+    }
+
+    uploadMovementData() {
+        this.socket.emit('updateClientPos', [
+            this.playerCapsule.end.x,
+            this.playerCapsule.end.y,
+            this.playerCapsule.end.z,
+        ]);
     }
 
     // ------------------------------------------------
@@ -645,6 +743,13 @@ class Game {
         this.playerCapsule.translate(deltaPosition);
         this.camera.position.copy(this.playerCapsule.end);
 
+        this.uploadMovementData();
+        // this.socket.emit('updateClientPos', [
+        //     this.playerCapsule.end.x,
+        //     this.playerCapsule.end.y,
+        //     this.playerCapsule.end.z,
+        // ]);
+
         if (this.collisionsEnabled) {
             this.playerCollision();
         }
@@ -756,6 +861,11 @@ class Game {
         if (performance.now() - this.lastTime < 1000 / 1) return;
         this.lastTime = performance.now();
         this.drawCallPanel.update(this.renderer.info.render.calls);
+        // this.checkPlayerData();
+
+        // let vector = this.camera.getWorldDirection();
+        // let rotation = Math.atan2(vector.x, vector.z);
+        // console.log(rotation);
     }
 
     // ------------------------------------------------
@@ -832,6 +942,18 @@ class Game {
         this.hudCamera.updateProjectionMatrix();
 
         return this;
+    }
+
+    checkPlayerData() {
+        const playerVelocity = this.playerVelocity.clone();
+        const position = this.playerCapsule.end;
+        const look = this.lookVector();
+        console.log('Velocity is');
+        console.log(playerVelocity);
+        console.log('Position is');
+        console.log(position);
+        console.log('Look direction is');
+        console.log(look);
     }
 }
 
