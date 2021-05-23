@@ -20,9 +20,8 @@ let players = {};
 (() => {
     setup();
 
-    // Roughly matches 120 refresh
+    // Update player position, roughly matches 120 refresh
     setInterval(function () {
-        // Update players positions
         io.sockets.emit('playerPositions', players);
     }, 8);
 })();
@@ -35,7 +34,7 @@ function setup() {
         // Add to server players object
         players[socket.id] = {
             position: [0, 0, 0],
-            velocity: ['some', 'data'],
+            direction: [0, 0, 0],
         };
 
         // We give all clients notice of new player and their ID..
@@ -71,9 +70,10 @@ function setup() {
         });
 
         // Data every client uploads
-        socket.on('updateClientPos', (data) => {
+        socket.on('updateClientPos', (position, direction) => {
             if (players[socket.id]) {
-                players[socket.id].position = data;
+                players[socket.id].position = position;
+                players[socket.id].direction = direction;
             }
         });
     });

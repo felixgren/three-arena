@@ -393,7 +393,7 @@ class Game {
             0.5
         );
 
-        this.playerCapsule.translate(this.teleportVec.set(0, 100, 0));
+        this.playerCapsule.translate(this.teleportVec.set(0, 300, 0));
 
         console.log('init player');
     }
@@ -551,11 +551,11 @@ class Game {
     }
 
     initRemotePlayer(playerID) {
-        const remotePlayer = new THREE.Mesh(
-            new THREE.BoxGeometry(1, 1, 1),
-            new THREE.MeshBasicMaterial({ color: 0x00ffff })
-        );
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshNormalMaterial();
+        material.color = new THREE.Color(0x000000);
 
+        const remotePlayer = new THREE.Mesh(geometry, material);
         remotePlayer.position.set(0, 0, 0);
 
         this.scene.add(remotePlayer);
@@ -563,6 +563,7 @@ class Game {
         this.players[playerID] = {};
         this.players[playerID].mesh = remotePlayer;
         this.players[playerID].positionSync = new THREE.Vector3();
+        // this.players[playerID].lookDirection = new THREE.Vector3();
 
         console.log(`${playerID} added to the scene!`);
         console.log(this.players);
@@ -574,12 +575,18 @@ class Game {
         console.log(this.players);
     }
 
+    // Maybe vectors should be reused here
     updateRemotePlayers(remotePlayers) {
         for (let id in remotePlayers) {
             if (id != this.player.id) {
                 this.players[id].positionSync = new THREE.Vector3().fromArray(
                     remotePlayers[id].position
                 );
+                this.players[id].lookDirection = new THREE.Vector3().fromArray(
+                    remotePlayers[id].direction
+                );
+
+                // this.players[id].lookDirection.z = 0;
 
                 // Set mesh position
                 this.players[id].mesh.position.set(
@@ -587,16 +594,34 @@ class Game {
                     this.players[id].positionSync.y,
                     this.players[id].positionSync.z
                 );
+
+                //Set mesh rotation
+                this.players[id].mesh.rotation.y =
+                    this.players[id].lookDirection.x;
+                this.players[id].mesh.rotation.x =
+                    this.players[id].lookDirection.y;
+
+                // this.players[id].mesh.lookAt(this.players[id].lookDirection);
+                // this.camera.rotation.order = 'YXZ';
+
+                // this.players[id].mesh.rotation.setFromVector3(
+                //     this.lookVector(),
+                //     'YXZ'
+                // );
             }
         }
     }
 
     uploadMovementData() {
-        this.socket.emit('updateClientPos', [
-            this.playerCapsule.end.x,
-            this.playerCapsule.end.y,
-            this.playerCapsule.end.z,
-        ]);
+        this.socket.emit(
+            'updateClientPos',
+            [
+                this.playerCapsule.end.x,
+                this.playerCapsule.end.y,
+                this.playerCapsule.end.z,
+            ],
+            this.lookVector().toArray()
+        );
     }
 
     // ------------------------------------------------
