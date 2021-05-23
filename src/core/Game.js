@@ -176,12 +176,12 @@ class Game {
         // dirLight.target.position.set(0, 0, 0);
         // this.scene.add(dirLight);
 
-        const pointLight = new THREE.PointLight(0xffffff, 0.5);
-        const pointLightHelper = new THREE.PointLightHelper(pointLight, 2);
-        pointLight.castShadow = true;
-        pointLight.position.set(50, 300, 0);
-        this.scene.add(pointLight);
-        this.scene.add(pointLightHelper);
+        // const pointLight = new THREE.PointLight(0xffffff, 0.5);
+        // const pointLightHelper = new THREE.PointLightHelper(pointLight, 2);
+        // pointLight.castShadow = true;
+        // pointLight.position.set(50, 300, 0);
+        // this.scene.add(pointLight);
+        // this.scene.add(pointLightHelper);
 
         // ---- MAYBE other init functions here such as field, playermodel, map, objects, rockets etc
 
@@ -504,7 +504,7 @@ class Game {
             );
         }
         if (this.Key[' ']) {
-            this.playerVelocity.y = this.playerSpeed + 25;
+            this.playerVelocity.y = this.playerSpeed;
         }
         if (this.Key['Control']) {
             this.playerVelocity.y -= this.playerSpeed * delta;
