@@ -38,7 +38,7 @@ class Game {
         this.controls = null;
         this.maxJumps = 2;
         this.upVector = null;
-        this.gravity = 70;
+        this.gravity = 100;
 
         this.toggle = false;
         this.collisionsEnabled = true;
@@ -56,11 +56,11 @@ class Game {
         this.listener = new THREE.AudioListener();
         this.audioMap = new Map();
 
-        this.socket = io('http://localhost:3000');
-        this.socket.emit('chat message', 'hello hello');
-        this.socket.on('chat message', function (message) {
-            console.log(message);
-        });
+        // this.socket = io('http://localhost:3000');
+        // this.socket.emit('chat message', 'hello hello');
+        // this.socket.on('chat message', function (message) {
+        //     console.log(message);
+        // });
 
         this.animRequest;
         this.requestAnimId = null;
@@ -167,16 +167,18 @@ class Game {
         this.camera.add(this.listener);
 
         const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-        ambientLight.power = 15;
+        ambientLight.power = 100;
         this.scene.add(ambientLight);
 
         // const dirLight = new THREE.DirectionalLight(0xffffff, 0.3); // Exposes terrain vertices
         // dirLight.position.set(40, 100, 1);
+        // dirLight.castShadow = true;
         // dirLight.target.position.set(0, 0, 0);
         // this.scene.add(dirLight);
 
         const pointLight = new THREE.PointLight(0xffffff, 0.5);
-        const pointLightHelper = new THREE.PointLightHelper(pointLight, 0.5);
+        const pointLightHelper = new THREE.PointLightHelper(pointLight, 2);
+        pointLight.castShadow = true;
         pointLight.position.set(50, 300, 0);
         this.scene.add(pointLight);
         this.scene.add(pointLightHelper);
@@ -222,10 +224,23 @@ class Game {
         const dracoLoader = new DRACOLoader();
         dracoLoader.setDecoderPath('draco/');
         gltfLoader.setDRACOLoader(dracoLoader);
-        gltfLoader.load('planet.glb', (gltf) => {
-            gltf.scene.traverse((model) => {});
+        gltfLoader.load('scene.glb', (gltf) => {
+            gltf.scene.traverse((model) => {
+                model.receiveShadow = true;
+                model.castShadow = true;
+            });
+            gltf.scene.receiveShadow = true;
+            gltf.scene.castShadow = true;
             this.world.add(gltf.scene);
             this.worldOctree.fromGraphNode(gltf.scene);
+        });
+        gltfLoader.load('tree.gltf', (gltf) => {
+            gltf.scene.traverse((model) => {});
+            gltf.scene.scale.set(35, 35, 35);
+            gltf.scene.position.set(-2, -10, -2);
+
+            this.world.add(gltf.scene);
+            // this.worldOctree.fromGraphNode(gltf.scene);
         });
 
         // Models FBX
@@ -254,6 +269,7 @@ class Game {
             128,
             128
         );
+        const bgGeoFull = new THREE.PlaneBufferGeometry(1500, 1500, 128, 128);
 
         const textureRock = new THREE.TextureLoader().load(
             'models/rocktexture.jpg'
@@ -263,16 +279,16 @@ class Game {
         textureRock.repeat.set(1, 1);
 
         const displacementMap = new THREE.TextureLoader().load(
-            'models/heightmap2.png'
+            'models/paintbg.png'
         );
         displacementMap.wrapS = THREE.RepeatWrapping;
         displacementMap.wrapT = THREE.RepeatWrapping;
         displacementMap.repeat.set(1, 1);
         const textMat = new THREE.MeshPhongMaterial({
-            color: '#82553C',
+            color: 'black',
             map: textureRock,
             displacementMap: displacementMap,
-            displacementScale: 350,
+            displacementScale: 200,
             displacementBias: -0.428408,
         });
 
@@ -286,6 +302,7 @@ class Game {
         const bgNorth = new THREE.Mesh(bgGeometry, textMat);
         const bgEast = new THREE.Mesh(bgGeometryVariant, textMat);
         const bgWest = new THREE.Mesh(bgGeometryVariant, textMat);
+        const bgfull = new THREE.Mesh(bgGeoFull, textMat);
 
         bgSouth.rotation.z = Math.PI / 2;
         bgSouth.position.set(-400, 0, -550);
@@ -301,6 +318,9 @@ class Game {
         bgWest.position.set(-1200, 0, 210);
         bgWest.rotation.x = -89.5;
 
+        bgfull.position.set(0, -50, 0);
+        bgfull.rotation.x = -89.5;
+
         sphere.castShadow = true;
         // No need (?)
         bgSouth.receiveShadow = true;
@@ -309,6 +329,7 @@ class Game {
         // this.world.add(bgNorth);
         // this.world.add(bgEast);
         // this.world.add(bgWest);
+        this.world.add(bgfull);
         this.world.add(sphere);
         this.scene.add(this.world);
         this.worldOctree.fromGraphNode(this.world);
@@ -324,7 +345,7 @@ class Game {
         // https://wickedengine.net/2020/04/26/capsule-collision-detection/
         this.playerCapsule = new Capsule(
             new THREE.Vector3(),
-            new THREE.Vector3(0, 2, 0),
+            new THREE.Vector3(0, 3, 0),
             0.5
         );
 
@@ -483,7 +504,7 @@ class Game {
             );
         }
         if (this.Key[' ']) {
-            this.playerVelocity.y = this.playerSpeed;
+            this.playerVelocity.y = this.playerSpeed + 25;
         }
         if (this.Key['Control']) {
             this.playerVelocity.y -= this.playerSpeed * delta;
