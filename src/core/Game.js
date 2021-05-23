@@ -37,6 +37,8 @@ class Game {
         this.isPlayerGrounded = false;
         this.playerSpeed = 30;
         this.playerVelocity = null;
+        // Better performance to reuse same vector
+        this.teleportVec = new THREE.Vector3(0, 0, 0);
 
         this.Key = {};
         this.controls = null;
@@ -391,6 +393,8 @@ class Game {
             0.5
         );
 
+        this.playerCapsule.translate(this.teleportVec.set(0, 100, 0));
+
         console.log('init player');
     }
 
@@ -506,8 +510,6 @@ class Game {
                     } player`
                 );
 
-                console.log(playerIDs);
-
                 // Check all that isn't local player
                 for (let i = 0; i < playerCount; i++) {
                     if (playerIDs[i] !== this.player.id) {
@@ -518,21 +520,24 @@ class Game {
                     }
                 }
             });
-            console.log(this.player);
         });
 
         this.socket.on('playerPositions', (data) => {
-            console.log(data);
             this.updateRemotePlayers(data);
         });
 
         this.socket.on('player connect', (playerId, playerCount) => {
             console.log(`${playerId} joined the session!`);
             console.log(`There are now ${playerCount} players`);
+            if (playerId !== this.player.id) {
+                console.log(`${playerId} needs to be added to the world...`);
+                this.initRemotePlayer(playerId);
+            }
             this.addChatMessage(playerId, 'I am here');
         });
 
         this.socket.on('player disconnect', (playerId, playerCount) => {
+            this.deleteRemotePlayer(playerId);
             console.log(`${playerId} has left us...`);
             console.log(`There are now ${playerCount} players`);
             this.addChatMessage(playerId, 'has left us...');
@@ -546,8 +551,6 @@ class Game {
     }
 
     initRemotePlayer(playerID) {
-        console.log(`i am going to add ${playerID}!!111`);
-
         const remotePlayer = new THREE.Mesh(
             new THREE.BoxGeometry(1, 1, 1),
             new THREE.MeshBasicMaterial({ color: 0x00ffff })
@@ -557,11 +560,18 @@ class Game {
 
         this.scene.add(remotePlayer);
 
-        // this.player.id = data.id;
-
         this.players[playerID] = {};
         this.players[playerID].mesh = remotePlayer;
         this.players[playerID].positionSync = new THREE.Vector3();
+
+        console.log(`${playerID} added to the scene!`);
+        console.log(this.players);
+    }
+
+    deleteRemotePlayer(playerID) {
+        this.scene.remove(this.players[playerID].mesh);
+        delete this.players[playerID];
+        console.log(this.players);
     }
 
     updateRemotePlayers(remotePlayers) {
@@ -570,9 +580,8 @@ class Game {
                 this.players[id].positionSync = new THREE.Vector3().fromArray(
                     remotePlayers[id].position
                 );
-                // console.log('i have updated!');
-                // console.log(this.players[id].positionSync.x);
 
+                // Set mesh position
                 this.players[id].mesh.position.set(
                     this.players[id].positionSync.x,
                     this.players[id].positionSync.y,
@@ -744,11 +753,6 @@ class Game {
         this.camera.position.copy(this.playerCapsule.end);
 
         this.uploadMovementData();
-        // this.socket.emit('updateClientPos', [
-        //     this.playerCapsule.end.x,
-        //     this.playerCapsule.end.y,
-        //     this.playerCapsule.end.z,
-        // ]);
 
         if (this.collisionsEnabled) {
             this.playerCollision();
@@ -757,10 +761,19 @@ class Game {
         if (this.camera.position.y < -200) {
             console.log('Player fell off the map, up they go');
             let pushForce = 200;
-            this.camera.position.y < -5000 && (pushForce = 500);
+            this.camera.position.y < -500 && (pushForce = 500);
             this.playerVelocity.set(0, 0, 0);
             this.playerVelocity.y = pushForce;
             this.collisionsEnabled = false;
+
+            if (this.camera.position.y < -1000) {
+                console.log('Player way off, teleported back up');
+                const distToGround = Math.abs(this.playerCapsule.end.y);
+                this.playerCapsule.translate(
+                    this.teleportVec.set(0, distToGround + 50, 0)
+                );
+                this.playerVelocity.set(0, 0, 0);
+            }
 
             setTimeout(() => {
                 this.camera.position.y > -200 &&
@@ -862,10 +875,6 @@ class Game {
         this.lastTime = performance.now();
         this.drawCallPanel.update(this.renderer.info.render.calls);
         // this.checkPlayerData();
-
-        // let vector = this.camera.getWorldDirection();
-        // let rotation = Math.atan2(vector.x, vector.z);
-        // console.log(rotation);
     }
 
     // ------------------------------------------------

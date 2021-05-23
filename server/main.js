@@ -20,11 +20,11 @@ let players = {};
 (() => {
     setup();
 
-    // Roughly matches 240hz refresh
+    // Roughly matches 120 refresh
     setInterval(function () {
         // Update players positions
         io.sockets.emit('playerPositions', players);
-    }, 4);
+    }, 8);
 })();
 
 function setup() {
