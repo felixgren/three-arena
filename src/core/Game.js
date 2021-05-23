@@ -98,6 +98,7 @@ class Game {
             this.initStats();
             this.initSocket();
             this.createCloneCube();
+            this.createMannequin();
         });
     }
 
@@ -144,6 +145,31 @@ class Game {
         this.cube = new THREE.Mesh(geometry, material);
         this.scene.add(this.cube);
         // this.cube.position.set(10, 2, 10);
+    }
+
+    createMannequin() {
+        const headGeo = new THREE.BoxGeometry(1, 1, 1);
+        const bodyGeo = new THREE.BoxGeometry(0.7, 1, 0.7);
+        const gunGeo = new THREE.BoxGeometry(1.5, 0.2, 0.2);
+
+        const playerMat = new THREE.MeshNormalMaterial();
+        const gunMat = new THREE.MeshPhongMaterial();
+        gunMat.color = new THREE.Color(0x000000);
+
+        const playerHead = new THREE.Mesh(headGeo, playerMat);
+        const playerBody = new THREE.Mesh(bodyGeo, playerMat);
+        const playerGun = new THREE.Mesh(gunGeo, gunMat);
+
+        playerBody.position.set(0, -1, 0);
+        playerGun.position.set(0.3, -1, 0.5);
+
+        const playerModel = new THREE.Group();
+        playerModel.add(playerHead);
+        playerModel.add(playerBody);
+        playerModel.add(playerGun);
+
+        this.scene.add(playerModel);
+        playerModel.position.set(5, 0, 0);
     }
 
     updateCloneCube() {
@@ -548,6 +574,10 @@ class Game {
                 this.addChatMessage(message, message2);
             });
         });
+
+        this.socket.on('shootSyncRocket', () => {
+            this.shootRemoteRocket();
+        });
     }
 
     initRemotePlayer(playerID) {
@@ -693,7 +723,36 @@ class Game {
             this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
 
             console.log('Rocket fired');
+            this.socket.emit('triggerRemoteRocket');
         });
+    }
+
+    shootRemoteRocket() {
+        const rocket = this.rockets[this.rocketIdx];
+
+        rocket.mesh.lookAt(this.lookVector().negate());
+
+        rocket.mesh.add(this.frontRocketLight, this.backRocketLight);
+        this.frontRocketLight.position.set(0, -1.1, 0);
+        this.backRocketLight.position.set(0, -1.2, 0);
+        this.frontRocketLight.power = 120;
+        this.backRocketLight.power = 100;
+        this.frontRocketLight.distance = 10;
+        this.backRocketLight.distance = 10; // use for animation
+
+        rocket.collider.center.copy(this.playerCapsule.end);
+
+        rocket.velocity
+            .copy(this.lookVector())
+            .multiplyScalar(this.rocketForce);
+
+        rocket.mesh.userData.isExploded = false;
+
+        rocket.mesh.visible = true;
+
+        this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
+
+        console.log('Remote rocket fired');
     }
 
     // ------------------------------------------------

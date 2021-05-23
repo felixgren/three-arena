@@ -76,6 +76,10 @@ function setup() {
                 players[socket.id].direction = direction;
             }
         });
+
+        socket.on('triggerRemoteRocket', () => {
+            io.emit('shootSyncRocket');
+        });
     });
 
     let port = process.env.PORT;
