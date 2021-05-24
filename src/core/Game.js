@@ -23,8 +23,6 @@ class Game {
         this.scene = null;
         this.renderer = null;
 
-        this.start = Date.now();
-
         this.gui = null;
         this.clock = null;
 
@@ -55,7 +53,7 @@ class Game {
 
         this.rockets = [];
         this.rocketForce = 90;
-        this.maxRockets = 100;
+        this.maxRockets = 10;
         this.rocketIdx = 0;
         this.deltaRocket = 0;
         this.frontRocketLight = null;
@@ -71,6 +69,11 @@ class Game {
         this.audioLoader = new THREE.AudioLoader(this.loadingManager);
         this.listener = new THREE.AudioListener();
         this.audioMap = new Map();
+
+        this.shaderLoader = new THREE.TextureLoader();
+        this.explosionMaterial = null;
+        this.explosionTime = Date.now();
+        this.explodeClock = new THREE.Clock();
 
         this.animRequest;
         this.requestAnimId = null;
@@ -98,7 +101,8 @@ class Game {
             this.initMap();
             this.initPlayer();
             this.initCrosshair();
-            this.initRockets();
+            this.initExplosions();
+            // this.initRockets();
             this.initStats();
             this.initSocket();
             this.createCloneCube();
@@ -125,21 +129,26 @@ class Game {
     }
 
     // Main update game function
-    tick() {
+    tick(time) {
         const delta = this.clock.getDelta();
+        const timeOrigin = time * 0.001;
         this.elaspedTime += delta;
+
+        var t = this.explodeClock.getElapsedTime();
+
+        // console.log(this.timeOrigin);
 
         this.updatePlayerControl(delta);
         this.updateCheckOnGround(delta);
         this.updatePlayerMovement(delta);
-        this.updateRockets(delta);
+        this.updateRockets(delta, t, timeOrigin);
         this.updateChatList();
         this.updateStats();
         this.updateCloneCube();
 
         if (this.explosionMaterial) {
             this.explosionMaterial.uniforms['time'].value =
-                0.00025 * (Date.now() - this.start);
+                0.00025 * (Date.now() - this.explosionTime);
         }
 
         this.stats.update();
@@ -321,45 +330,6 @@ class Game {
         //     this.worldOctree.fromGraphNode(rock);
         // });
 
-        // instantiate a loader
-        const loader = new THREE.TextureLoader();
-        this.explosionMaterial;
-        // load a resource
-        loader.load(
-            'models/explosion.png',
-
-            (texture) => {
-                this.explosionMaterial = new THREE.ShaderMaterial({
-                    uniforms: {
-                        tExplosion: {
-                            type: 't',
-                            value: texture,
-                        },
-                        time: {
-                            // float initialized to 0
-                            type: 'f',
-                            value: 0.0,
-                        },
-                    },
-
-                    vertexShader: explosionVertex,
-                    fragmentShader: explosionFragment,
-                });
-
-                const explosion = new THREE.Mesh(
-                    new THREE.IcosahedronGeometry(10, 10),
-                    this.explosionMaterial
-                );
-                this.scene.add(explosion);
-                explosion.position.set(0, 10, -50);
-                console.log('added to world');
-            },
-            undefined,
-            function (err) {
-                console.error('An error happened.');
-            }
-        );
-
         RectAreaLightUniformsLib.init();
 
         const rectLight1 = new THREE.RectAreaLight(0xff0000, 5, 200, 500);
@@ -510,6 +480,44 @@ class Game {
         return this;
     }
 
+    initExplosions() {
+        this.shaderLoader.load(
+            'models/explosion.png',
+            (texture) => {
+                this.explosionMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                        tExplosion: {
+                            type: 't',
+                            value: texture,
+                        },
+                        time: {
+                            // float initialized to 0
+                            type: 'f',
+                            value: 0.0,
+                        },
+                    },
+                    vertexShader: explosionVertex,
+                    fragmentShader: explosionFragment,
+                });
+
+                this.rocketExplosion = new THREE.Mesh(
+                    new THREE.IcosahedronGeometry(10, 10),
+                    this.explosionMaterial
+                );
+                this.scene.add(this.rocketExplosion);
+                this.rocketExplosion.position.set(0, 10, -50);
+                console.log('init explosions');
+                this.initRockets();
+            },
+            undefined,
+            function (err) {
+                console.error(
+                    'An error happened whilst loading initExplosions'
+                );
+            }
+        );
+    }
+
     initRockets() {
         const rocketGeometry = new THREE.CylinderGeometry(0.05, 0.15, 2, 12);
         const rocketMaterial = new THREE.MeshPhongMaterial();
@@ -525,10 +533,13 @@ class Game {
 
         for (let i = 0; i < this.maxRockets; i++) {
             const coolRocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
-
+            const coolExplosion = this.rocketExplosion.clone();
             coolRocket.castShadow = true;
             coolRocket.receiveShadow = true;
             coolRocket.userData.isExploded = false;
+            coolRocket.userData.explosionTime = 0;
+
+            coolExplosion.userData.explosionTime = 0;
 
             const audioFly = this.createAudioInstance(
                 this.audioMap.get('rocketFly')
@@ -539,12 +550,20 @@ class Game {
             coolRocket.add(audioFly);
             coolRocket.add(audioExplode);
 
+            coolExplosion.position.set(0, 0, 0);
+            coolExplosion.visible = false;
+            coolExplosion.name = 'explosion';
             this.scene.add(coolRocket);
+            coolRocket.add(coolExplosion);
+
+            // rocket.mesh.add(this.rocketExplosion);
+            // this.rocketExplosion.position.set(0, 0, 0);
 
             this.rockets.push({
                 mesh: coolRocket,
                 collider: new THREE.Sphere(new THREE.Vector3(0, -50, 0), 0.5),
                 velocity: new THREE.Vector3(),
+                timer: new THREE.Clock(),
             });
         }
         console.log('init rockets');
@@ -764,6 +783,7 @@ class Game {
 
             // Reset explode state
             rocket.mesh.userData.isExploded = false;
+            rocket.mesh.userData.explosionTime = 0;
 
             // Set rocket visible
             rocket.mesh.visible = true;
@@ -922,7 +942,7 @@ class Game {
         }
     }
 
-    updateRockets(delta) {
+    updateRockets(delta, elapsedTime, timeOrigin) {
         this.rockets.forEach((rocket) => {
             rocket.collider.center.addScaledVector(rocket.velocity, delta);
 
@@ -949,21 +969,41 @@ class Game {
             // On hit
             if (result) {
                 rocket.velocity.set(0, 0, 0);
-                if (
-                    // !audioRocketExplode.isPlaying &&
-                    !rocket.mesh.userData.isExploded
-                ) {
+                const explodeMesh = rocket.mesh.getObjectByName('explosion');
+
+                if (!rocket.mesh.userData.isExploded) {
                     console.log('Rocket hit');
+
+                    this.impactTime = timeOrigin;
+                    console.log(`Time of impact... ${this.impactTime}`);
+
                     rocket.mesh.userData.isExploded = true;
 
                     explodeSound.offset = 0.05;
                     explodeSound.play();
                     flySound.stop();
 
+                    explodeMesh.visible = true;
+
                     // Set rocket invisible
                     setTimeout(() => {
-                        rocket.mesh.visible = false;
+                        // rocket.mesh.visible = false;
+                        // explodeMesh.visible = false;
                     }, 1000);
+                }
+                explodeMesh.userData.explosionTime =
+                    timeOrigin - this.impactTime;
+                console.log(explodeMesh.userData.explosionTime);
+
+                if (elapsedTime >= 0.4) {
+                    {
+                        this.explodeClock = new THREE.Clock();
+                        explodeMesh.scale.set(0, 0, 0);
+                    }
+                } else {
+                    explodeMesh.scale.x = 0 + elapsedTime * 4;
+                    explodeMesh.scale.y = 0 + elapsedTime * 4;
+                    explodeMesh.scale.z = 0 + elapsedTime * 4;
                 }
             } else {
                 // In air
@@ -1105,9 +1145,9 @@ class Game {
     }
 }
 
-function startAnimation() {
+function startAnimation(hellothere) {
     this.requestAnimId = requestAnimationFrame(this.startAnimation);
-    this.tick();
+    this.tick(hellothere);
 }
 
 function stopAnimation() {
