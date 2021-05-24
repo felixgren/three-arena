@@ -21,6 +21,8 @@ class Game {
         this.scene = null;
         this.renderer = null;
 
+        this.start = Date.now();
+
         this.gui = null;
         this.clock = null;
 
@@ -132,6 +134,11 @@ class Game {
         this.updateChatList();
         this.updateStats();
         this.updateCloneCube();
+
+        if (this.explosionMaterial) {
+            this.explosionMaterial.uniforms['time'].value =
+                0.00025 * (Date.now() - this.start);
+        }
 
         this.stats.update();
         this.renderer.render(this.scene, this.camera);
@@ -312,6 +319,47 @@ class Game {
         //     this.worldOctree.fromGraphNode(rock);
         // });
 
+        // instantiate a loader
+        const loader = new THREE.TextureLoader();
+        this.explosionMaterial;
+        // load a resource
+        loader.load(
+            'models/explosion.png',
+
+            (texture) => {
+                this.explosionMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                        tExplosion: {
+                            type: 't',
+                            value: texture,
+                        },
+                        time: {
+                            // float initialized to 0
+                            type: 'f',
+                            value: 0.0,
+                        },
+                    },
+
+                    vertexShader:
+                        document.getElementById('vertexShader').textContent,
+                    fragmentShader:
+                        document.getElementById('fragmentShader').textContent,
+                });
+
+                const explosion = new THREE.Mesh(
+                    new THREE.IcosahedronGeometry(20, 4),
+                    this.explosionMaterial
+                );
+                this.scene.add(explosion);
+                explosion.position.set(0, 10, -50);
+                console.log('added to world');
+            },
+            undefined,
+            function (err) {
+                console.error('An error happened.');
+            }
+        );
+
         RectAreaLightUniformsLib.init();
 
         const rectLight1 = new THREE.RectAreaLight(0xff0000, 5, 200, 500);
@@ -419,7 +467,7 @@ class Game {
             0.5
         );
 
-        this.playerCapsule.translate(this.teleportVec.set(0, 300, 0));
+        this.playerCapsule.translate(this.teleportVec.set(0, 100, 0));
 
         console.log('init player');
     }
@@ -516,7 +564,7 @@ class Game {
 
     initSocket() {
         console.log('init socket');
-        this.socket = io('https://arenaserver.herokuapp.com');
+        this.socket = io('http://localhost:3000');
 
         this.player = {};
         this.players = {};
