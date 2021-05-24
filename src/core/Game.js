@@ -54,8 +54,8 @@ class Game {
         // this.loadingManager = new THREE.LoadingManager();
         this.audioLoader = new THREE.AudioLoader();
         this.listener = new THREE.AudioListener();
+        this.audio = new THREE.Audio(this.listener);
         this.audioMap = new Map();
-
         // this.socket = io('http://localhost:3000');
         // this.socket.emit('chat message', 'hello hello');
         // this.socket.on('chat message', function (message) {
@@ -151,6 +151,15 @@ class Game {
         audioMap.set('rocketFly', rocketFly);
         audioMap.set('rocketExplode', rocketExplode);
         console.log('init audio');
+
+        // const sound = new THREE.Audio(listener);
+        // const bgTrackPath = './sounds/asiastana.ogg';
+        // audioLoader.load(bgTrackPath, function (buffer) {
+        //     sound.setBuffer(buffer);
+        //     sound.setLoop(true);
+        //     sound.setVolume(0.075);
+        //     sound.play();
+        // });
     }
 
     initScene() {
@@ -238,8 +247,9 @@ class Game {
             gltf.scene.traverse((model) => {});
             gltf.scene.scale.set(35, 35, 35);
             gltf.scene.position.set(-2, -10, -2);
-
             this.world.add(gltf.scene);
+
+            // Replaced with invisible nav mesh in editor
             // this.worldOctree.fromGraphNode(gltf.scene);
         });
 
@@ -286,13 +296,13 @@ class Game {
         displacementMap.repeat.set(1, 1);
         const textMat = new THREE.MeshPhongMaterial({
             color: 'black',
-            map: textureRock,
+            // map: textureRock,
             displacementMap: displacementMap,
-            displacementScale: 200,
+            displacementScale: 500,
             displacementBias: -0.428408,
         });
 
-        const bgMaterial = new THREE.MeshPhongMaterial();
+        const bgMaterial = new THREE.MeshBasicMaterial();
         bgMaterial.color = new THREE.Color(0xff111111);
         const material = new THREE.MeshPhongMaterial();
         material.color = new THREE.Color(0xff109000);
@@ -318,10 +328,13 @@ class Game {
         bgWest.position.set(-1200, 0, 210);
         bgWest.rotation.x = -89.5;
 
-        bgfull.position.set(0, -50, 0);
+        bgfull.position.set(0, -250, 0);
         bgfull.rotation.x = -89.5;
+        bgfull.rotation.z = 89.5;
 
         sphere.castShadow = true;
+        sphere.position.set(0, 75, 0);
+        sphere.scale.set(2, 2, 2);
         // No need (?)
         bgSouth.receiveShadow = true;
 
