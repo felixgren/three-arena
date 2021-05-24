@@ -1,12 +1,13 @@
 * {
     margin: 0;
     padding: 0;
+    font-family: 'Montserrat', sans-serif;
 }
 
 html,
 body {
     height: 100vh;
-    font-family: 'Roboto', sans-serif;
+    background: black;
 }
 
 .webgl {
@@ -23,9 +24,12 @@ body {
     background-color: rgba(53, 53, 53, 0.5);
     position: absolute;
     padding: 5px;
-    font-family: Arial, Helvetica, sans-serif;
-    font-weight: 300;
+    /* font-family: Arial, Helvetica, sans-serif; */
+    font-weight: 400;
     z-index: 100;
+}
+.custom-stats h4 {
+    font-weight: 500;
 }
 .pause-button {
     bottom: 0;
@@ -54,9 +58,37 @@ body {
 .start-button {
     position: absolute;
     top: 250px;
-    left: calc(50% - 100px);
+    left: calc(50% - 150px);
     font-size: 40px;
     cursor: pointer;
+    background-color: #1b1b1b;
+    color: white;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    transition: 150ms;
+    border: 3px solid black;
+    border-radius: 8px;
+    margin: 8px 6px;
+    transform: translate(8px, 8px);
+    width: 300px;
+    height: 60px;
+}
+
+.start-button:hover {
+    transform: translate(0px, 0px);
+}
+
+.button-background {
+    position: absolute;
+    top: 250px;
+    left: calc(50% - 150px);
+    background-color: #ee0000;
+    border: 3px solid black;
+    border-radius: 8px;
+    margin: 8px 6px;
+    width: 300px;
+    height: 60px;
+    box-sizing: border-box;
 }
 
 #chatSection {
