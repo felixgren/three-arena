@@ -516,7 +516,7 @@ class Game {
 
     initSocket() {
         console.log('init socket');
-        this.socket = io('http://localhost:3000');
+        this.socket = io('https://arenaserver.herokuapp.com');
 
         this.player = {};
         this.players = {};
@@ -548,8 +548,8 @@ class Game {
             });
         });
 
-        this.socket.on('playerPositions', (data) => {
-            this.updateRemotePlayers(data);
+        this.socket.on('playerPositions', (players) => {
+            this.updateRemotePlayers(players);
         });
 
         this.socket.on('player connect', (playerId, playerCount) => {
@@ -575,8 +575,8 @@ class Game {
             });
         });
 
-        this.socket.on('shootSyncRocket', () => {
-            this.shootRemoteRocket();
+        this.socket.on('shootSyncRocket', (players) => {
+            this.shootRemoteRocket(players);
         });
     }
 
@@ -727,10 +727,15 @@ class Game {
         });
     }
 
-    shootRemoteRocket() {
+    shootRemoteRocket(playerID) {
         const rocket = this.rockets[this.rocketIdx];
+        const playerPosition = new THREE.Vector3().fromArray(playerID.position);
+        const playerDirection = new THREE.Vector3().fromArray(
+            playerID.direction
+        );
 
-        rocket.mesh.lookAt(this.lookVector().negate());
+        // Model direction
+        rocket.mesh.lookAt(playerDirection.negate());
 
         rocket.mesh.add(this.frontRocketLight, this.backRocketLight);
         this.frontRocketLight.position.set(0, -1.1, 0);
@@ -740,10 +745,12 @@ class Game {
         this.frontRocketLight.distance = 10;
         this.backRocketLight.distance = 10; // use for animation
 
-        rocket.collider.center.copy(this.playerCapsule.end);
+        // Spawn Position
+        rocket.collider.center.copy(playerPosition);
 
+        // Spawn shoot direction
         rocket.velocity
-            .copy(this.lookVector())
+            .copy(playerDirection.negate())
             .multiplyScalar(this.rocketForce);
 
         rocket.mesh.userData.isExploded = false;
