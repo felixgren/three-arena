@@ -14,6 +14,8 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib';
 import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper';
 import { Sprite, SpriteMaterial, OrthographicCamera, Scene } from 'three';
+import explosionFragment from '../shader/Explosion.frag';
+import explosionVertex from '../shader/Explosion.vert';
 
 class Game {
     constructor() {
@@ -340,14 +342,12 @@ class Game {
                         },
                     },
 
-                    vertexShader:
-                        document.getElementById('vertexShader').textContent,
-                    fragmentShader:
-                        document.getElementById('fragmentShader').textContent,
+                    vertexShader: explosionVertex,
+                    fragmentShader: explosionFragment,
                 });
 
                 const explosion = new THREE.Mesh(
-                    new THREE.IcosahedronGeometry(20, 4),
+                    new THREE.IcosahedronGeometry(10, 10),
                     this.explosionMaterial
                 );
                 this.scene.add(explosion);
@@ -467,7 +467,7 @@ class Game {
             0.5
         );
 
-        this.playerCapsule.translate(this.teleportVec.set(0, 100, 0));
+        this.playerCapsule.translate(this.teleportVec.set(0, 200, 0));
 
         console.log('init player');
     }
@@ -564,7 +564,7 @@ class Game {
 
     initSocket() {
         console.log('init socket');
-        this.socket = io('http://localhost:3000');
+        this.socket = io('https://arenaserver.herokuapp.com/');
 
         this.player = {};
         this.players = {};
