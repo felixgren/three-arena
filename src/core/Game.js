@@ -175,8 +175,8 @@ class Game {
         );
         this.camera.add(this.listener);
 
-        const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-        ambientLight.power = 100;
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.4); // soft white light
+        // ambientLight.power = 200;
         this.scene.add(ambientLight);
 
         // const dirLight = new THREE.DirectionalLight(0xffffff, 0.3); // Exposes terrain vertices
@@ -185,20 +185,43 @@ class Game {
         // dirLight.target.position.set(0, 0, 0);
         // this.scene.add(dirLight);
 
-        // const pointLight = new THREE.PointLight(0xffffff, 0.5);
-        // const pointLightHelper = new THREE.PointLightHelper(pointLight, 2);
-        // pointLight.castShadow = true;
-        // pointLight.position.set(50, 300, 0);
+        const pointLight = new THREE.PointLight(0xffffff, 0.5);
+        const pointLightHelper = new THREE.PointLightHelper(pointLight, 2, 500);
+        pointLight.castShadow = true;
+        pointLight.position.set(200, 50, 0);
+        pointLight.shadow.radius = 3;
         // this.scene.add(pointLight);
         // this.scene.add(pointLightHelper);
+        const dirLight = new THREE.DirectionalLight(0xefd7a2, 1);
 
+        dirLight.position.set(-25, 250, 120);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.near = 1;
+        dirLight.shadow.camera.far = 2000;
+        dirLight.shadow.camera.right = 250;
+        dirLight.shadow.camera.left = -250;
+        dirLight.shadow.camera.top = 250;
+        dirLight.shadow.camera.bottom = -250;
+        dirLight.shadow.mapSize.width = 4064;
+        dirLight.shadow.mapSize.height = 4064;
+        // dirLight.target.position.set = (0, 0, 0);
+        // dirLight.shadow.bias = 0.1;
+        dirLight.shadow.radius = 0.6;
+        this.scene.add(dirLight);
+
+        // this.scene.add(new THREE.CameraHelper(dirLight.shadow.camera));
+
+        const dirLighthelper = new THREE.DirectionalLightHelper(dirLight);
+        // this.scene.add(dirLighthelper);
         // ---- MAYBE other init functions here such as field, playermodel, map, objects, rockets etc
 
         this.renderer = new THREE.WebGLRenderer();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        // this.renderer.toneMapping = THREE.ReinhardToneMapping;
+        // this.renderer.toneMappingExposure = 0.8;
         this.ui.body.appendChild(this.renderer.domElement);
 
         window.addEventListener('resize', () => {
@@ -244,9 +267,12 @@ class Game {
             this.worldOctree.fromGraphNode(gltf.scene);
         });
         gltfLoader.load('tree.gltf', (gltf) => {
-            gltf.scene.traverse((model) => {});
+            gltf.scene.traverse((model) => {
+                model.castShadow = true;
+            });
             gltf.scene.scale.set(35, 35, 35);
-            gltf.scene.position.set(-2, -10, -2);
+            gltf.scene.position.set(-3, -10, -3);
+            // gltf.scene.castShadow = true;
             this.world.add(gltf.scene);
 
             // Replaced with invisible nav mesh in editor
@@ -295,8 +321,11 @@ class Game {
         displacementMap.wrapT = THREE.RepeatWrapping;
         displacementMap.repeat.set(1, 1);
         const textMat = new THREE.MeshPhongMaterial({
-            color: 'black',
-            // map: textureRock,
+            color: '#010101',
+            map: textureRock,
+            shininess: 0,
+            roughness: 1,
+            metalness: 0.4,
             displacementMap: displacementMap,
             displacementScale: 500,
             displacementBias: -0.428408,
@@ -314,21 +343,21 @@ class Game {
         const bgWest = new THREE.Mesh(bgGeometryVariant, textMat);
         const bgfull = new THREE.Mesh(bgGeoFull, textMat);
 
-        bgSouth.rotation.z = Math.PI / 2;
-        bgSouth.position.set(-400, 0, -550);
-        bgSouth.rotation.x = -89.61;
+        // bgSouth.rotation.z = Math.PI / 2;
+        // bgSouth.position.set(-400, 0, -550);
+        // bgSouth.rotation.x = -89.61;
 
-        bgNorth.rotation.z = Math.PI / 2;
-        bgNorth.position.set(-400, 0, 910);
-        bgNorth.rotation.x = -89.5;
+        // bgNorth.rotation.z = Math.PI / 2;
+        // bgNorth.position.set(-400, 0, 910);
+        // bgNorth.rotation.x = -89.5;
 
-        bgEast.position.set(270, 0, 170);
-        bgEast.rotation.x = -89.5;
+        // bgEast.position.set(270, 0, 170);
+        // bgEast.rotation.x = -89.5;
 
-        bgWest.position.set(-1200, 0, 210);
-        bgWest.rotation.x = -89.5;
+        // bgWest.position.set(-1200, 0, 210);
+        // bgWest.rotation.x = -89.5;
 
-        bgfull.position.set(0, -250, 0);
+        bgfull.position.set(0, -210, 0);
         bgfull.rotation.x = -89.5;
         bgfull.rotation.z = 89.5;
 
