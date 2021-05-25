@@ -387,7 +387,7 @@ class Game {
         textureRock.repeat.set(1, 1);
 
         const displacementMap = new THREE.TextureLoader().load(
-            'models/paintbg.png'
+            'models/heightmap.png'
         );
         displacementMap.wrapS = THREE.RepeatWrapping;
         displacementMap.wrapT = THREE.RepeatWrapping;
@@ -410,17 +410,17 @@ class Game {
         material.color = new THREE.Color(0xff109000);
 
         const sphere = new THREE.Mesh(geometry, material);
-        const bgfull = new THREE.Mesh(bgGeometry, textMat);
+        const displacementBackground = new THREE.Mesh(bgGeometry, textMat);
 
-        bgfull.position.set(0, -210, 0);
-        bgfull.rotation.x = -89.5;
-        bgfull.rotation.z = 89.5;
+        displacementBackground.position.set(0, -210, 0);
+        displacementBackground.rotation.x = -89.5;
+        displacementBackground.rotation.z = 89.5;
 
         sphere.castShadow = true;
         sphere.position.set(0, 75, 0);
         sphere.scale.set(2, 2, 2);
 
-        this.world.add(bgfull);
+        this.world.add(displacementBackground);
         this.world.add(sphere);
         this.scene.add(this.world);
         this.worldOctree.fromGraphNode(this.world);
