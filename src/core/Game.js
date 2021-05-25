@@ -176,22 +176,18 @@ class Game {
         this.camera.add(this.listener);
 
         const ambientLight = new THREE.AmbientLight(0x404040, 1.4); // soft white light
-        // ambientLight.power = 200;
         this.scene.add(ambientLight);
-
-        // const dirLight = new THREE.DirectionalLight(0xffffff, 0.3); // Exposes terrain vertices
-        // dirLight.position.set(40, 100, 1);
-        // dirLight.castShadow = true;
-        // dirLight.target.position.set(0, 0, 0);
-        // this.scene.add(dirLight);
 
         const pointLight = new THREE.PointLight(0xffffff, 0.5);
         const pointLightHelper = new THREE.PointLightHelper(pointLight, 2, 500);
         pointLight.castShadow = true;
         pointLight.position.set(200, 50, 0);
         pointLight.shadow.radius = 3;
+
+        // Point light helpers
         // this.scene.add(pointLight);
         // this.scene.add(pointLightHelper);
+
         const dirLight = new THREE.DirectionalLight(0xefd7a2, 1);
 
         dirLight.position.set(-25, 250, 120);
@@ -209,10 +205,11 @@ class Game {
         dirLight.shadow.radius = 0.6;
         this.scene.add(dirLight);
 
+        // Directional light helper
         // this.scene.add(new THREE.CameraHelper(dirLight.shadow.camera));
-
-        const dirLighthelper = new THREE.DirectionalLightHelper(dirLight);
+        // const dirLighthelper = new THREE.DirectionalLightHelper(dirLight);
         // this.scene.add(dirLighthelper);
+
         // ---- MAYBE other init functions here such as field, playermodel, map, objects, rockets etc
 
         this.renderer = new THREE.WebGLRenderer();
@@ -298,14 +295,7 @@ class Game {
 
         // TEST Objects
         const geometry = new THREE.IcosahedronGeometry(1);
-        const bgGeometry = new THREE.PlaneBufferGeometry(500, 1200, 128, 128);
-        const bgGeometryVariant = new THREE.PlaneBufferGeometry(
-            420,
-            1400,
-            128,
-            128
-        );
-        const bgGeoFull = new THREE.PlaneBufferGeometry(1500, 1500, 128, 128);
+        const bgGeometry = new THREE.PlaneBufferGeometry(1500, 1500, 128, 128);
 
         const textureRock = new THREE.TextureLoader().load(
             'models/rocktexture.jpg'
@@ -324,8 +314,9 @@ class Game {
             color: '#010101',
             map: textureRock,
             shininess: 0,
-            roughness: 1,
-            metalness: 0.4,
+            // Properties for other materials
+            // roughness: 1,
+            // metalness: 0.4,
             displacementMap: displacementMap,
             displacementScale: 500,
             displacementBias: -0.428408,
@@ -337,25 +328,7 @@ class Game {
         material.color = new THREE.Color(0xff109000);
 
         const sphere = new THREE.Mesh(geometry, material);
-        const bgSouth = new THREE.Mesh(bgGeometry, textMat);
-        const bgNorth = new THREE.Mesh(bgGeometry, textMat);
-        const bgEast = new THREE.Mesh(bgGeometryVariant, textMat);
-        const bgWest = new THREE.Mesh(bgGeometryVariant, textMat);
-        const bgfull = new THREE.Mesh(bgGeoFull, textMat);
-
-        // bgSouth.rotation.z = Math.PI / 2;
-        // bgSouth.position.set(-400, 0, -550);
-        // bgSouth.rotation.x = -89.61;
-
-        // bgNorth.rotation.z = Math.PI / 2;
-        // bgNorth.position.set(-400, 0, 910);
-        // bgNorth.rotation.x = -89.5;
-
-        // bgEast.position.set(270, 0, 170);
-        // bgEast.rotation.x = -89.5;
-
-        // bgWest.position.set(-1200, 0, 210);
-        // bgWest.rotation.x = -89.5;
+        const bgfull = new THREE.Mesh(bgGeometry, textMat);
 
         bgfull.position.set(0, -210, 0);
         bgfull.rotation.x = -89.5;
@@ -364,13 +337,7 @@ class Game {
         sphere.castShadow = true;
         sphere.position.set(0, 75, 0);
         sphere.scale.set(2, 2, 2);
-        // No need (?)
-        bgSouth.receiveShadow = true;
 
-        // this.world.add(bgSouth);
-        // this.world.add(bgNorth);
-        // this.world.add(bgEast);
-        // this.world.add(bgWest);
         this.world.add(bgfull);
         this.world.add(sphere);
         this.scene.add(this.world);
@@ -395,6 +362,9 @@ class Game {
     }
 
     initRockets() {
+        // const rocketGeometry = new THREE.GLTFLoader('models/rocket.glb');
+
+        // const rocketGeo = await loader.loadAsync('model/rocket.glb');
         const rocketGeometry = new THREE.CylinderGeometry(0.05, 0.15, 2, 12);
         const rocketMaterial = new THREE.MeshPhongMaterial();
         rocketMaterial.color = new THREE.Color(0x000000);
@@ -408,21 +378,49 @@ class Game {
         this.backRocketLight.castShadow = true;
 
         for (let i = 0; i < this.maxRockets; i++) {
-            const coolRocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
+            const objectLoader = new THREE.ObjectLoader().setPath('models/');
+            objectLoader.load('rocket.json', (obj) => {
+                obj.scale.setY(0.2);
+                obj.scale.setX(0.2);
+                obj.scale.setZ(0.2);
+                obj.castShadow = true;
+                obj.receiveShadow = true;
+                obj.userData.isExploded = false;
+                obj.userData.rocketExplode = this.audioMap.get('rocketExplode');
+                // Add the loaded object to the scene
 
-            coolRocket.castShadow = true;
-            coolRocket.receiveShadow = true;
-            coolRocket.userData.isExploded = false;
-            coolRocket.userData.rocketExplode =
-                this.audioMap.get('rocketExplode');
+                // gltf.scene.(model) => {
+                //     model.castShadow = true;
+                //     model.receiveShadow = true;
+                //     model.userData.isExploded = false;
+                //     model.userData.rocketExplode =
+                //         this.audioMap.get('rocketExplode');
+                // });
 
-            this.scene.add(coolRocket);
-
-            this.rockets.push({
-                mesh: coolRocket,
-                collider: new THREE.Sphere(new THREE.Vector3(0, -50, 0), 0.5),
-                velocity: new THREE.Vector3(),
+                this.scene.add(obj);
+                this.rockets.push({
+                    mesh: obj,
+                    collider: new THREE.Sphere(
+                        new THREE.Vector3(0, -50, 0),
+                        0.5
+                    ),
+                    velocity: new THREE.Vector3(),
+                });
             });
+
+            // const coolRocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
+            // coolRocket.castShadow = true;
+            // coolRocket.receiveShadow = true;
+            // coolRocket.userData.isExploded = false;
+            // coolRocket.userData.rocketExplode =
+            //     this.audioMap.get('rocketExplode');
+
+            // this.scene.add(coolRocket);
+            // this.rockets.push({
+            //     mesh: coolRocket,
+            //     collider: new THREE.Sphere(new THREE.Vector3(0, -50, 0), 0.5),
+            //     velocity: new THREE.Vector3(),
+            // });
         }
         console.log('init rockets');
     }
