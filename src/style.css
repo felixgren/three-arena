@@ -1,12 +1,13 @@
 * {
     margin: 0;
     padding: 0;
+    font-family: 'Montserrat', sans-serif;
 }
 
 html,
 body {
     height: 100vh;
-    font-family: 'Poppins';
+    background: black;
 }
 
 .webgl {
@@ -23,13 +24,16 @@ body {
     background-color: rgba(53, 53, 53, 0.5);
     position: absolute;
     padding: 5px;
-    font-family: Arial, Helvetica, sans-serif;
-    font-weight: 300;
+    /* font-family: Arial, Helvetica, sans-serif; */
+    font-weight: 400;
     z-index: 100;
+}
+.custom-stats h4 {
+    font-weight: 500;
 }
 .pause-button {
     bottom: 0;
-    left: 0;
+    right: 10vh;
     position: absolute;
     z-index: 100;
     display: inline-block;
@@ -39,7 +43,7 @@ body {
     border-radius: 0.12em;
     box-sizing: border-box;
     text-decoration: none;
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Arial', sans-serif;
     font-weight: 300;
     color: #ffffff;
     text-align: center;
@@ -54,17 +58,90 @@ body {
 .start-button {
     position: absolute;
     top: 250px;
-    left: calc(50% - 100px);
+    left: calc(50% - 150px);
     font-size: 40px;
     cursor: pointer;
+    background-color: #1b1b1b;
+    color: white;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    transition: 150ms;
+    border: 3px solid black;
+    border-radius: 8px;
+    margin: 8px 6px;
+    transform: translate(8px, 8px);
+    width: 300px;
+    height: 60px;
 }
 
-/* .crosshair {
+.start-button:hover {
+    transform: translate(0px, 0px);
+}
+
+.button-background {
     position: absolute;
-    top: 50vh;
-    left: calc(50% - 10px);
-    width: 100px;
-    height: auto;
-    border: 1px solid white;
-    pointer-events: none;
-} */
+    top: 250px;
+    left: calc(50% - 150px);
+    background-color: #ee0000;
+    border: 3px solid black;
+    border-radius: 8px;
+    margin: 8px 6px;
+    width: 300px;
+    height: 60px;
+    box-sizing: border-box;
+}
+
+#chatSection {
+    left: 4%;
+    bottom: 4%;
+    position: absolute;
+    border-radius: 3px;
+}
+
+.chatList {
+    list-style-type: none;
+    font-size: 16px;
+    text-align: left;
+    font-family: 'Roboto Mono', monospace;
+}
+
+.chatContainer {
+    background-color: #4e4e4eaf;
+    font-size: 28px;
+    color: #ffffff;
+    text-align: center;
+    line-height: 20px;
+}
+.chatContainer > div {
+    padding: 4px;
+}
+.chatContainer > div > span {
+    display: inline-block;
+}
+.chatContainer > div > ul > li:not(:first-child) {
+    border-top: 1px solid #6b6b6b60;
+}
+.chatContainer > div > ul > li {
+    padding: 4px;
+}
+
+.hidden {
+    display: none;
+}
+
+#inputForm {
+    display: none;
+    position: absolute;
+    bottom: 2%;
+    left: 4%;
+    z-index: 50;
+    padding: 2px;
+}
+
+#inputForm input {
+    line-height: 20px;
+    color: white;
+    border: none;
+    background-color: transparent;
+    outline: none;
+}

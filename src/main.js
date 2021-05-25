@@ -1,6 +1,6 @@
 import Game from './core/Game';
 
-const startGameButton = document.querySelector('.start-button');
+const startGameButton = document.querySelector('.button-wrapper');
 
 Game.load();
 
