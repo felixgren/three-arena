@@ -273,7 +273,7 @@ class Game {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.ui.body.appendChild(this.renderer.domElement);
 
         window.addEventListener('resize', () => {
@@ -301,7 +301,7 @@ class Game {
     }
 
     initMap() {
-        const ambientLight = new THREE.AmbientLight(0x404040, 1.4); // soft white light
+        const ambientLight = new THREE.AmbientLight(0xddbf96, 0.6); // soft white light
         this.scene.add(ambientLight);
 
         // const pointLight = new THREE.PointLight(0xffffff, 0.5);
@@ -314,7 +314,7 @@ class Game {
         // this.scene.add(pointLight);
         // this.scene.add(pointLightHelper);
 
-        const dirLight = new THREE.DirectionalLight(0xefd7a2, 1);
+        const dirLight = new THREE.DirectionalLight(0xfcd6a4, 1);
 
         dirLight.position.set(-25, 250, 120);
         dirLight.castShadow = true;
@@ -393,7 +393,7 @@ class Game {
         displacementMap.wrapT = THREE.RepeatWrapping;
         displacementMap.repeat.set(1, 1);
         const textMat = new THREE.MeshPhongMaterial({
-            color: '#010101',
+            color: '#030303',
             map: textureRock,
             shininess: 0,
             // Properties for other materials
