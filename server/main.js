@@ -78,7 +78,11 @@ function setup() {
         });
 
         socket.on('triggerRemoteRocket', () => {
-            socket.broadcast.emit('shootSyncRocket', players[socket.id]);
+            socket.broadcast.emit(
+                'shootSyncRocket',
+                players[socket.id],
+                socket.id
+            );
         });
     });
 

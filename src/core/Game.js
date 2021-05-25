@@ -257,7 +257,10 @@ class Game {
 
         // ---- MAYBE other init functions here such as field, playermodel, map, objects, rockets etc
 
-        this.renderer = new THREE.WebGLRenderer();
+        this.renderer = new THREE.WebGLRenderer({
+            powerPreference: 'high-performance',
+            antialias: false,
+        });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
         this.renderer.shadowMap.enabled = true;
@@ -613,14 +616,14 @@ class Game {
                 console.log(`${playerId} needs to be added to the world...`);
                 this.initRemotePlayer(playerId);
             }
-            this.addChatMessage(playerId, 'I am here');
+            this.addStatusMessage(playerId, 'join');
         });
 
         this.socket.on('player disconnect', (playerId, playerCount) => {
             this.deleteRemotePlayer(playerId);
             console.log(`${playerId} has left us...`);
             console.log(`There are now ${playerCount} players`);
-            this.addChatMessage(playerId, 'has left us...');
+            this.addStatusMessage(playerId, 'leave');
         });
 
         this.socket.on('connect', () => {
@@ -629,8 +632,8 @@ class Game {
             });
         });
 
-        this.socket.on('shootSyncRocket', (players) => {
-            this.shootRemoteRocket(players);
+        this.socket.on('shootSyncRocket', (playerData, playerID) => {
+            this.shootRemoteRocket(playerData, playerID);
         });
     }
 
@@ -781,11 +784,13 @@ class Game {
         });
     }
 
-    shootRemoteRocket(playerID) {
+    shootRemoteRocket(playerData, playerID) {
         const rocket = this.rockets[this.rocketIdx];
-        const playerPosition = new THREE.Vector3().fromArray(playerID.position);
+        const playerPosition = new THREE.Vector3().fromArray(
+            playerData.position
+        );
         const playerDirection = new THREE.Vector3().fromArray(
-            playerID.direction
+            playerData.direction
         );
 
         // Model direction
@@ -808,6 +813,9 @@ class Game {
             .multiplyScalar(this.rocketForce);
 
         rocket.mesh.userData.isExploded = false;
+        rocket.mesh.userData.shooter = playerID;
+
+        console.log(rocket.mesh.userData.shooter);
 
         rocket.mesh.visible = true;
 
@@ -963,9 +971,23 @@ class Game {
                 const explodeMesh = rocket.mesh.getObjectByName('explosion');
 
                 if (!rocket.mesh.userData.isExploded) {
+                    rocket.mesh.userData.isExploded = true;
                     console.log('Rocket hit');
 
-                    rocket.mesh.userData.isExploded = true;
+                    const playerDistance =
+                        this.playerCapsule.end.distanceToSquared(
+                            rocket.collider.center
+                        );
+
+                    if (playerDistance < 150) {
+                        console.log('omg im HIT!!!');
+                        console.log(`${rocket.mesh.userData.shooter} shot me`);
+                        // make public
+                        this.addKillMessage(
+                            this.player.id,
+                            rocket.mesh.userData.shooter
+                        );
+                    }
 
                     explodeSound.offset = 0.05;
                     explodeSound.play();
@@ -1050,10 +1072,6 @@ class Game {
     // General functions
 
     addChatMessage(username, message) {
-        this.ui.chatSection.classList.remove('hidden');
-
-        const string = `${username} says ${message}`;
-
         const usernameSpan = document.createElement('span');
         usernameSpan.style.color = '#0fff00';
         usernameSpan.textContent = username;
@@ -1065,20 +1083,74 @@ class Game {
         messageSpan.style.color = '#ffffff';
         messageSpan.textContent = message;
 
-        const MsgText = document.createElement('li');
-        MsgText.appendChild(usernameSpan);
-        MsgText.appendChild(middleSpan);
-        MsgText.appendChild(messageSpan);
+        const content = document.createElement('li');
+        content.appendChild(usernameSpan);
+        content.appendChild(middleSpan);
+        content.appendChild(messageSpan);
+
+        this.createMessage(content);
+    }
+
+    addKillMessage(shooter, killed) {
+        const shooterSpan = document.createElement('span');
+        shooterSpan.textContent = `${shooter}`;
+        shooterSpan.style.color = '#00ff00';
+
+        const middleSpan = document.createElement('span');
+        middleSpan.textContent = ' ︻┳═一 ';
+
+        const killedSpan = document.createElement('span');
+        killedSpan.textContent = killed;
+        killedSpan.style.color = '#ff0000';
+
+        const content = document.createElement('li');
+        content.style.color = '#ffff00';
+        content.style.fontWeight = '500';
+        content.appendChild(shooterSpan);
+        content.appendChild(middleSpan);
+        content.appendChild(killedSpan);
+
+        this.createMessage(content);
+    }
+
+    addStatusMessage(username, status) {
+        const usernameSpan = document.createElement('span');
+        usernameSpan.textContent = username;
+
+        const statusSpan = document.createElement('span');
+        statusSpan.textContent = status;
+
+        const content = document.createElement('li');
+        switch (status) {
+            case 'join':
+                content.style.color = '#00ff00';
+                statusSpan.textContent = ' has joined the game';
+                break;
+            case 'leave':
+                content.style.color = '#ff0000';
+                statusSpan.textContent = ' has left the game ';
+                break;
+            default:
+                statusSpan.textContent = ' unknown status event ';
+                break;
+        }
+        content.appendChild(usernameSpan);
+        content.appendChild(statusSpan);
+
+        this.createMessage(content);
+    }
+
+    createMessage(content) {
+        this.ui.chatSection.classList.remove('hidden');
 
         const chatMessage = {
-            text: string,
             endTime: this.elaspedTime + 10,
-            ui: MsgText,
+            ui: content,
         };
 
         this.chatMessages.push(chatMessage);
         const chatList = this.ui.chatList;
-        chatList.appendChild(MsgText);
+        chatList.appendChild(content);
 
         return this;
     }
