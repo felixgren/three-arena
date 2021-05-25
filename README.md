@@ -23,8 +23,16 @@ Add the installation instructions.
 
 # Code Review
 
-1. `example.js:10-15` - Remember to think about X and this could be refactored using the amazing Y function.
-
+1. `Game.js:8,11-12` - Gets imported but isn't used.
+2. `Game.js:82` - console.log() :)
+3. `Game.js:75` - Remove code that isn't in use.
+4. `Game.js` - For better readabilty you can split game.js into multiple files.
+5. `Game.js:423-46` - For better performent we would suggest a switch-statement instead.
+6. `Game.js:` - Existing descriptions could be more informative :)
+7. `Game.js` - Unclear what controls that we are supposed to use. "Open / Close Controls" doesnt work.
+8. Instructions how to play.
+9. We dont really understand the game :)
+10. Gives warnings when running "npm run build".
 # Testers
 
 Tested by the following people:
