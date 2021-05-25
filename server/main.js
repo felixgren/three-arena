@@ -65,8 +65,12 @@ function setup() {
         });
 
         // On chat message emit it to everyone
-        socket.on('chat message', function (msg, msg2) {
-            io.emit('chat message', msg, msg2);
+        socket.on('chat message', function (username, message) {
+            io.emit('chat message', username, message);
+        });
+
+        socket.on('kill message', function (shooter, killed) {
+            io.emit('kill message', shooter, killed);
         });
 
         // Data every client uploads

@@ -196,7 +196,7 @@ class Game {
 
         const rocketExplode = new THREE.PositionalAudio(listener);
         const rocketFly = new THREE.PositionalAudio(listener);
-        const bamboo = new THREE.PositionalAudio(listener);
+        const ambientSong = new THREE.Audio(listener);
 
         audioLoader.load('sounds/rocket-explode.ogg', (buffer) =>
             rocketExplode.setBuffer(buffer)
@@ -206,13 +206,16 @@ class Game {
             rocketFly.setBuffer(buffer)
         );
 
-        audioLoader.load('sounds/bamboo.mp3', (buffer) =>
-            bamboo.setBuffer(buffer)
-        );
+        audioLoader.load('sounds/slownomotion.ogg', (buffer) => {
+            ambientSong.setBuffer(buffer);
+            ambientSong.setLoop(true);
+            ambientSong.setVolume(0.02);
+            // ambientSong.play();
+        });
 
         audioMap.set('rocketFly', rocketFly);
         audioMap.set('rocketExplode', rocketExplode);
-        audioMap.set('bamboo', bamboo);
+        audioMap.set('ambientSong', ambientSong);
 
         loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
             console.log(
@@ -225,15 +228,6 @@ class Game {
                     ' files.'
             );
         };
-
-        const sound = new THREE.Audio(listener);
-        const bgTrackPath = './sounds/slownomotion.ogg';
-        audioLoader.load(bgTrackPath, function (buffer) {
-            sound.setBuffer(buffer);
-            sound.setLoop(true);
-            sound.setVolume(0.02);
-            sound.play();
-        });
 
         loadingManager.onError = function (url) {
             console.log('There was an error loading ' + url);
@@ -639,13 +633,21 @@ class Game {
         });
 
         this.socket.on('connect', () => {
-            this.socket.on('chat message', (message, message2) => {
-                this.addChatMessage(message, message2);
+            this.socket.on('chat message', (username, message) => {
+                this.addChatMessage(username, message);
             });
         });
 
         this.socket.on('shootSyncRocket', (playerData, playerID) => {
             this.shootRemoteRocket(playerData, playerID);
+        });
+
+        this.socket.on('kill message', (shooter, killed) => {
+            if (shooter) {
+                this.addKillMessage(shooter, killed);
+            } else {
+                this.addKillMessage(killed);
+            }
         });
     }
 
@@ -977,7 +979,7 @@ class Game {
                 flySound.play();
             }
 
-            // On hit
+            // On rocket impact
             if (result) {
                 rocket.velocity.set(0, 0, 0);
                 const explodeMesh = rocket.mesh.getObjectByName('explosion');
@@ -991,23 +993,31 @@ class Game {
                             rocket.collider.center
                         );
 
+                    // On Player hit
                     if (playerDistance < 150) {
-                        console.log('omg im HIT!!!');
-                        console.log(`${rocket.mesh.userData.shooter} shot me`);
-                        // make public
-                        this.addKillMessage(
-                            this.player.id,
-                            rocket.mesh.userData.shooter
+                        this.socket.emit(
+                            'kill message',
+                            rocket.mesh.userData.shooter,
+                            this.player.id
                         );
+
+                        // Reset to pos 50, 0, 50
+                        const distFromX = -this.playerCapsule.end.x;
+                        const distToGround = Math.abs(this.playerCapsule.end.y);
+                        const distFromZ = -this.playerCapsule.end.z;
+                        this.playerCapsule.translate(
+                            this.teleportVec.set(
+                                distFromX + 50,
+                                distToGround + 50,
+                                distFromZ + 50
+                            )
+                        );
+                        this.playerVelocity.set(0, 0, 0);
                     }
 
                     explodeSound.offset = 0.05;
                     explodeSound.play();
                     flySound.stop();
-
-                    // if (rocket.mesh.position.y < 1) {
-                    //     explodeMesh.translateZ(3);
-                    // }
 
                     explodeMesh.visible = true;
                     rocket.timer.start();
