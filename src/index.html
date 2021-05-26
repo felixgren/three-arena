@@ -12,27 +12,39 @@
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet"> 
     </head>
     <body>
+        <!-- Movement HUD stats -->
         <div class="custom-stats">
             <h4>Velocity:</h4>
             <p class="velocity-stats">Initial</p>
             <h4>Position:</h4>
             <p class="position-stats">Initial</p>
         </div>
-        <div class="pause-button">
-            <a class="button">Toggle</a>
+
+        <!-- Pause render loop button (currently hidden) -->
+        <div class="pause-button-wrapper">
+            <a class="pause-button">Toggle</a>
+        </div>
+
+        <!-- Respawn game button -->
+        <div class="respawn-button-wrapper">
+            <div class="button-background"></div>
+            <p class="respawn-text">You died</p>
+            <button class="button">Respawn</button>
         </div>
 
         <!-- Start game button -->
-        <div class="button-wrapper">
+        <div class="start-button-wrapper">
             <div class="button-background"></div>
-            <button class="start-button">CONNECT</button>
+            <button class="button">CONNECT</button>
         </div>
 
+        <!-- Chat system -->
         <section id="chatSection" class="chatContainer hidden">
             <div>
                 <ul class="chatList"></ul>
             </div>
         </section>
+
 
         <!-- Chat input -->
         <div id="inputForm">

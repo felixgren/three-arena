@@ -50,6 +50,7 @@ class Game {
 
         this.toggle = false;
         this.collisionsEnabled = true;
+        this.inputDisabled = false;
 
         this.rockets = [];
         this.rocketForce = 90;
@@ -81,7 +82,8 @@ class Game {
 
         this.ui = {
             body: document.querySelector('body'),
-            pauseButton: document.querySelector('.pause-button'),
+            respawnButton: document.querySelector('.respawn-button-wrapper'),
+            pauseButton: document.querySelector('.pause-button-wrapper'),
             velocityStats: document.querySelector('.velocity-stats'),
             positionStats: document.querySelector('.position-stats'),
             chatSection: document.getElementById('chatSection'),
@@ -124,6 +126,53 @@ class Game {
             this.toggle = !this.toggle;
             this.toggle ? this.stopAnimation() : this.startAnimation();
         });
+    }
+
+    triggerDeath() {
+        console.log('You died');
+        document.exitPointerLock();
+        this.inputDisabled = true;
+        this.ui.respawnButton.style.pointerEvents = 'none';
+        this.ui.respawnButton.style.userSelect = 'none';
+        this.ui.respawnButton.style.display = 'block';
+        this.ui.respawnButton.lastChild.style.fontSize = '30px';
+        this.ui.respawnButton.lastChild.style.transform = 'translate(0px, 0px)';
+        this.ui.respawnButton.lastChild.textContent = `Respawn in 5`;
+
+        let countdown = 5;
+        const timer = setInterval(() => {
+            countdown--;
+            countdown <= 0 && clearInterval(timer);
+            this.ui.respawnButton.lastChild.textContent = `Respawn in ${countdown}`;
+        }, 1000);
+
+        setTimeout(() => {
+            console.log('You can now respawn');
+            this.inputDisabled = false;
+            this.ui.respawnButton.style.userSelect = 'unset';
+            this.ui.respawnButton.style.pointerEvents = 'unset';
+            this.ui.respawnButton.lastChild.textContent = `RESPAWN`;
+            this.ui.respawnButton.lastChild.style.fontSize = '40px';
+            this.ui.respawnButton.lastChild.style.transform =
+                'translate(8px, 8px)';
+        }, 5000);
+    }
+
+    triggerRespawn() {
+        console.log('respawn trigger');
+
+        // Respawn player
+        const distFromX = -this.playerCapsule.end.x;
+        const distToGround = Math.abs(this.playerCapsule.end.y);
+        const distFromZ = -this.playerCapsule.end.z;
+        this.playerCapsule.translate(
+            this.teleportVec.set(
+                distFromX + this.getRandomBetween(10, 120),
+                distToGround + 50,
+                distFromZ + this.getRandomBetween(10, 120)
+            )
+        );
+        this.playerVelocity.set(0, 0, 0);
     }
 
     // Main update game function
@@ -434,6 +483,7 @@ class Game {
             0.5
         );
 
+        this.triggerRespawn();
         this.playerCapsule.translate(this.teleportVec.set(0, 200, 0));
 
         console.log('init player');
@@ -732,7 +782,7 @@ class Game {
         this.ui.body.requestPointerLock();
 
         document.querySelector('canvas').addEventListener('mousedown', () => {
-            this.ui.body.requestPointerLock();
+            !this.inputDisabled && this.ui.body.requestPointerLock();
         });
 
         this.camera.rotation.order = 'YXZ';
@@ -744,12 +794,24 @@ class Game {
                 this.camera.rotation.y -= event.movementX / 700;
             }
         });
+
+        document.addEventListener(
+            'click',
+            (e) => {
+                if (this.inputDisabled) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            },
+            true
+        );
+
         console.log('Activate pointerlock');
     }
 
     activateMovement() {
         document.addEventListener('keydown', (event) => {
-            this.Key[event.key] = true;
+            !this.inputDisabled && (this.Key[event.key] = true);
             if (event.key == 'Enter') {
                 event.preventDefault();
             }
@@ -1001,18 +1063,7 @@ class Game {
                             this.player.id
                         );
 
-                        // Reset to pos 50, 0, 50
-                        const distFromX = -this.playerCapsule.end.x;
-                        const distToGround = Math.abs(this.playerCapsule.end.y);
-                        const distFromZ = -this.playerCapsule.end.z;
-                        this.playerCapsule.translate(
-                            this.teleportVec.set(
-                                distFromX + 50,
-                                distToGround + 50,
-                                distFromZ + 50
-                            )
-                        );
-                        this.playerVelocity.set(0, 0, 0);
+                        this.triggerDeath();
                     }
 
                     explodeSound.offset = 0.05;
@@ -1226,6 +1277,15 @@ class Game {
         console.log(position);
         console.log('Look direction is');
         console.log(look);
+    }
+
+    getRandomBetween(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    toggleInputs() {
+        this.inputDisabled = !this.inputDisabled;
+        this.inputDisabled ? console.log('enabled') : console.log('disabled');
     }
 }
 
