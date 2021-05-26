@@ -37,7 +37,7 @@ class Game {
         this.players = null;
         this.playerCapsule = null;
         this.isPlayerGrounded = false;
-        this.playerSpeed = 30;
+        this.playerSpeed = 50;
         this.playerVelocity = null;
         // Better performance to reuse same vector
         this.teleportVec = new THREE.Vector3(0, 0, 0);
@@ -105,7 +105,7 @@ class Game {
             this.initExplosion();
             this.initStats();
             this.initSocket();
-            this.createCloneCube();
+            // this.createCloneCube();
             this.createMannequin();
         });
     }
@@ -131,6 +131,7 @@ class Game {
     triggerDeath() {
         console.log('You died');
         document.exitPointerLock();
+        this.respawnWaitingRoom();
         this.inputDisabled = true;
         this.ui.respawnButton.style.pointerEvents = 'none';
         this.ui.respawnButton.style.userSelect = 'none';
@@ -173,6 +174,7 @@ class Game {
             )
         );
         this.playerVelocity.set(0, 0, 0);
+        this.gravity = 70;
     }
 
     // Main update game function
@@ -186,7 +188,7 @@ class Game {
         this.updateRockets(delta);
         this.updateChatList();
         this.updateStats();
-        this.updateCloneCube();
+        // this.updateCloneCube();
 
         this.stats.update();
         this.renderer.render(this.scene, this.camera);
@@ -934,8 +936,10 @@ class Game {
                 )
             );
         }
-        if (this.Key[' ']) {
-            this.playerVelocity.y = this.playerSpeed;
+        if (this.isPlayerGrounded) {
+            if (this.Key[' ']) {
+                this.playerVelocity.y = 50;
+            }
         }
         if (this.Key['Control']) {
             this.playerVelocity.y -= this.playerSpeed * delta;
@@ -1056,7 +1060,7 @@ class Game {
                         );
 
                     // On Player hit
-                    if (playerDistance < 150) {
+                    if (playerDistance < 170) {
                         this.socket.emit(
                             'kill message',
                             rocket.mesh.userData.shooter,
@@ -1286,6 +1290,21 @@ class Game {
     toggleInputs() {
         this.inputDisabled = !this.inputDisabled;
         this.inputDisabled ? console.log('enabled') : console.log('disabled');
+    }
+
+    respawnWaitingRoom() {
+        this.gravity = 0;
+        const distFromX = -this.playerCapsule.end.x;
+        const distToGround = Math.abs(this.playerCapsule.end.y);
+        const distFromZ = -this.playerCapsule.end.z;
+        this.playerCapsule.translate(
+            this.teleportVec.set(
+                distFromX + 0,
+                distToGround - 50,
+                distFromZ + 0
+            )
+        );
+        this.playerVelocity.set(0, 0, 0);
     }
 }
 
