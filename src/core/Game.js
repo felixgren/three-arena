@@ -37,7 +37,7 @@ class Game {
         this.players = null;
         this.playerCapsule = null;
         this.isPlayerGrounded = false;
-        this.playerSpeed = 30;
+        this.playerSpeed = 50;
         this.playerVelocity = null;
         // Better performance to reuse same vector
         this.teleportVec = new THREE.Vector3(0, 0, 0);
@@ -50,6 +50,7 @@ class Game {
 
         this.toggle = false;
         this.collisionsEnabled = true;
+        this.inputDisabled = false;
 
         this.rockets = [];
         this.rocketForce = 90;
@@ -81,7 +82,8 @@ class Game {
 
         this.ui = {
             body: document.querySelector('body'),
-            pauseButton: document.querySelector('.pause-button'),
+            respawnButton: document.querySelector('.respawn-button-wrapper'),
+            pauseButton: document.querySelector('.pause-button-wrapper'),
             velocityStats: document.querySelector('.velocity-stats'),
             positionStats: document.querySelector('.position-stats'),
             chatSection: document.getElementById('chatSection'),
@@ -103,7 +105,7 @@ class Game {
             this.initExplosion();
             this.initStats();
             this.initSocket();
-            this.createCloneCube();
+            // this.createCloneCube();
             this.createMannequin();
         });
     }
@@ -126,6 +128,55 @@ class Game {
         });
     }
 
+    triggerDeath() {
+        console.log('You died');
+        document.exitPointerLock();
+        this.respawnWaitingRoom();
+        this.inputDisabled = true;
+        this.ui.respawnButton.style.pointerEvents = 'none';
+        this.ui.respawnButton.style.userSelect = 'none';
+        this.ui.respawnButton.style.display = 'block';
+        this.ui.respawnButton.lastChild.style.fontSize = '30px';
+        this.ui.respawnButton.lastChild.style.transform = 'translate(0px, 0px)';
+        this.ui.respawnButton.lastChild.textContent = `Respawn in 5`;
+
+        let countdown = 5;
+        const timer = setInterval(() => {
+            countdown--;
+            countdown <= 0 && clearInterval(timer);
+            this.ui.respawnButton.lastChild.textContent = `Respawn in ${countdown}`;
+        }, 1000);
+
+        setTimeout(() => {
+            console.log('You can now respawn');
+            this.inputDisabled = false;
+            this.ui.respawnButton.style.userSelect = 'unset';
+            this.ui.respawnButton.style.pointerEvents = 'unset';
+            this.ui.respawnButton.lastChild.textContent = `RESPAWN`;
+            this.ui.respawnButton.lastChild.style.fontSize = '40px';
+            this.ui.respawnButton.lastChild.style.transform =
+                'translate(8px, 8px)';
+        }, 5000);
+    }
+
+    triggerRespawn() {
+        console.log('respawn trigger');
+
+        // Respawn player
+        const distFromX = -this.playerCapsule.end.x;
+        const distToGround = Math.abs(this.playerCapsule.end.y);
+        const distFromZ = -this.playerCapsule.end.z;
+        this.playerCapsule.translate(
+            this.teleportVec.set(
+                distFromX + this.getRandomBetween(10, 120),
+                distToGround + 50,
+                distFromZ + this.getRandomBetween(10, 120)
+            )
+        );
+        this.playerVelocity.set(0, 0, 0);
+        this.gravity = 70;
+    }
+
     // Main update game function
     tick() {
         const delta = this.clock.getDelta();
@@ -137,7 +188,7 @@ class Game {
         this.updateRockets(delta);
         this.updateChatList();
         this.updateStats();
-        this.updateCloneCube();
+        // this.updateCloneCube();
 
         this.stats.update();
         this.renderer.render(this.scene, this.camera);
@@ -196,7 +247,7 @@ class Game {
 
         const rocketExplode = new THREE.PositionalAudio(listener);
         const rocketFly = new THREE.PositionalAudio(listener);
-        const bamboo = new THREE.PositionalAudio(listener);
+        const ambientSong = new THREE.Audio(listener);
 
         audioLoader.load('sounds/rocket-explode.ogg', (buffer) =>
             rocketExplode.setBuffer(buffer)
@@ -206,13 +257,16 @@ class Game {
             rocketFly.setBuffer(buffer)
         );
 
-        audioLoader.load('sounds/bamboo.mp3', (buffer) =>
-            bamboo.setBuffer(buffer)
-        );
+        audioLoader.load('sounds/slownomotion.ogg', (buffer) => {
+            ambientSong.setBuffer(buffer);
+            ambientSong.setLoop(true);
+            ambientSong.setVolume(0.02);
+            // ambientSong.play();
+        });
 
         audioMap.set('rocketFly', rocketFly);
         audioMap.set('rocketExplode', rocketExplode);
-        audioMap.set('bamboo', bamboo);
+        audioMap.set('ambientSong', ambientSong);
 
         loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
             console.log(
@@ -225,15 +279,6 @@ class Game {
                     ' files.'
             );
         };
-
-        const sound = new THREE.Audio(listener);
-        const bgTrackPath = './sounds/slownomotion.ogg';
-        audioLoader.load(bgTrackPath, function (buffer) {
-            sound.setBuffer(buffer);
-            sound.setLoop(true);
-            sound.setVolume(0.02);
-            sound.play();
-        });
 
         loadingManager.onError = function (url) {
             console.log('There was an error loading ' + url);
@@ -440,6 +485,7 @@ class Game {
             0.5
         );
 
+        this.triggerRespawn();
         this.playerCapsule.translate(this.teleportVec.set(0, 200, 0));
 
         console.log('init player');
@@ -639,13 +685,21 @@ class Game {
         });
 
         this.socket.on('connect', () => {
-            this.socket.on('chat message', (message, message2) => {
-                this.addChatMessage(message, message2);
+            this.socket.on('chat message', (username, message) => {
+                this.addChatMessage(username, message);
             });
         });
 
         this.socket.on('shootSyncRocket', (playerData, playerID) => {
             this.shootRemoteRocket(playerData, playerID);
+        });
+
+        this.socket.on('kill message', (shooter, killed) => {
+            if (shooter) {
+                this.addKillMessage(shooter, killed);
+            } else {
+                this.addKillMessage(killed);
+            }
         });
     }
 
@@ -730,7 +784,7 @@ class Game {
         this.ui.body.requestPointerLock();
 
         document.querySelector('canvas').addEventListener('mousedown', () => {
-            this.ui.body.requestPointerLock();
+            !this.inputDisabled && this.ui.body.requestPointerLock();
         });
 
         this.camera.rotation.order = 'YXZ';
@@ -742,12 +796,24 @@ class Game {
                 this.camera.rotation.y -= event.movementX / 700;
             }
         });
+
+        document.addEventListener(
+            'click',
+            (e) => {
+                if (this.inputDisabled) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            },
+            true
+        );
+
         console.log('Activate pointerlock');
     }
 
     activateMovement() {
         document.addEventListener('keydown', (event) => {
-            this.Key[event.key] = true;
+            !this.inputDisabled && (this.Key[event.key] = true);
             if (event.key == 'Enter') {
                 event.preventDefault();
             }
@@ -870,8 +936,10 @@ class Game {
                 )
             );
         }
-        if (this.Key[' ']) {
-            this.playerVelocity.y = this.playerSpeed;
+        if (this.isPlayerGrounded) {
+            if (this.Key[' ']) {
+                this.playerVelocity.y = 50;
+            }
         }
         if (this.Key['Control']) {
             this.playerVelocity.y -= this.playerSpeed * delta;
@@ -977,7 +1045,7 @@ class Game {
                 flySound.play();
             }
 
-            // On hit
+            // On rocket impact
             if (result) {
                 rocket.velocity.set(0, 0, 0);
                 const explodeMesh = rocket.mesh.getObjectByName('explosion');
@@ -991,23 +1059,20 @@ class Game {
                             rocket.collider.center
                         );
 
-                    if (playerDistance < 150) {
-                        console.log('omg im HIT!!!');
-                        console.log(`${rocket.mesh.userData.shooter} shot me`);
-                        // make public
-                        this.addKillMessage(
-                            this.player.id,
-                            rocket.mesh.userData.shooter
+                    // On Player hit
+                    if (playerDistance < 170) {
+                        this.socket.emit(
+                            'kill message',
+                            rocket.mesh.userData.shooter,
+                            this.player.id
                         );
+
+                        this.triggerDeath();
                     }
 
                     explodeSound.offset = 0.05;
                     explodeSound.play();
                     flySound.stop();
-
-                    // if (rocket.mesh.position.y < 1) {
-                    //     explodeMesh.translateZ(3);
-                    // }
 
                     explodeMesh.visible = true;
                     rocket.timer.start();
@@ -1216,6 +1281,30 @@ class Game {
         console.log(position);
         console.log('Look direction is');
         console.log(look);
+    }
+
+    getRandomBetween(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    toggleInputs() {
+        this.inputDisabled = !this.inputDisabled;
+        this.inputDisabled ? console.log('enabled') : console.log('disabled');
+    }
+
+    respawnWaitingRoom() {
+        this.gravity = 0;
+        const distFromX = -this.playerCapsule.end.x;
+        const distToGround = Math.abs(this.playerCapsule.end.y);
+        const distFromZ = -this.playerCapsule.end.z;
+        this.playerCapsule.translate(
+            this.teleportVec.set(
+                distFromX + 0,
+                distToGround - 50,
+                distFromZ + 0
+            )
+        );
+        this.playerVelocity.set(0, 0, 0);
     }
 }
 
