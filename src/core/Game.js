@@ -5,14 +5,8 @@ import io from 'socket.io-client';
 import Stats from 'three/examples/jsm/libs/stats.module';
 import { Capsule } from 'three/examples/jsm/math/Capsule';
 import { Octree } from 'three/examples/jsm/math/Octree';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
-import { DiscreteInterpolant, PlaneBufferGeometry, TextureLoader } from 'three';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib';
-import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper';
 import { Sprite, SpriteMaterial, OrthographicCamera, Scene } from 'three';
 import explosionFragment from '../shader/Explosion.frag';
 import explosionVertex from '../shader/Explosion.vert';
@@ -39,8 +33,7 @@ class Game {
         this.isPlayerGrounded = false;
         this.playerSpeed = 50;
         this.playerVelocity = null;
-        // Better performance to reuse same vector
-        this.teleportVec = new THREE.Vector3(0, 0, 0);
+        this.teleportVec = new THREE.Vector3(0, 0, 0); // Better performance to reuse same vector
 
         this.Key = {};
         this.controls = null;
@@ -104,9 +97,8 @@ class Game {
             this.initCrosshair();
             this.initExplosion();
             this.initStats();
+            this.initDevWIP();
             this.initSocket();
-            // this.createCloneCube();
-            this.createMannequin();
         });
     }
 
@@ -117,64 +109,9 @@ class Game {
         this.activatePointerLock();
         this.activateMovement();
         this.activateRocketShooting();
+        this.activateGamePause();
         this.startAnimation(); // Starts tick function
         this.addChatMessage('Admin', 'Welcome to three arena.');
-    }
-
-    pauseGame() {
-        this.ui.pauseButton.addEventListener('click', () => {
-            this.toggle = !this.toggle;
-            this.toggle ? this.stopAnimation() : this.startAnimation();
-        });
-    }
-
-    triggerDeath() {
-        console.log('You died');
-        document.exitPointerLock();
-        this.respawnWaitingRoom();
-        this.inputDisabled = true;
-        this.ui.respawnButton.style.pointerEvents = 'none';
-        this.ui.respawnButton.style.userSelect = 'none';
-        this.ui.respawnButton.style.display = 'block';
-        this.ui.respawnButton.lastChild.style.fontSize = '30px';
-        this.ui.respawnButton.lastChild.style.transform = 'translate(0px, 0px)';
-        this.ui.respawnButton.lastChild.textContent = `Respawn in 5`;
-
-        let countdown = 5;
-        const timer = setInterval(() => {
-            countdown--;
-            countdown <= 0 && clearInterval(timer);
-            this.ui.respawnButton.lastChild.textContent = `Respawn in ${countdown}`;
-        }, 1000);
-
-        setTimeout(() => {
-            console.log('You can now respawn');
-            this.inputDisabled = false;
-            this.ui.respawnButton.style.userSelect = 'unset';
-            this.ui.respawnButton.style.pointerEvents = 'unset';
-            this.ui.respawnButton.lastChild.textContent = `RESPAWN`;
-            this.ui.respawnButton.lastChild.style.fontSize = '40px';
-            this.ui.respawnButton.lastChild.style.transform =
-                'translate(8px, 8px)';
-        }, 5000);
-    }
-
-    triggerRespawn() {
-        console.log('respawn trigger');
-
-        // Respawn player
-        const distFromX = -this.playerCapsule.end.x;
-        const distToGround = Math.abs(this.playerCapsule.end.y);
-        const distFromZ = -this.playerCapsule.end.z;
-        this.playerCapsule.translate(
-            this.teleportVec.set(
-                distFromX + this.getRandomBetween(10, 120),
-                distToGround + 50,
-                distFromZ + this.getRandomBetween(10, 120)
-            )
-        );
-        this.playerVelocity.set(0, 0, 0);
-        this.gravity = 70;
     }
 
     // Main update game function
@@ -188,7 +125,7 @@ class Game {
         this.updateRockets(delta);
         this.updateChatList();
         this.updateStats();
-        // this.updateCloneCube();
+        this.updateCloneCube();
 
         this.stats.update();
         this.renderer.render(this.scene, this.camera);
@@ -629,6 +566,11 @@ class Game {
         this.lastTime = performance.now();
     }
 
+    initDevWIP() {
+        this.createCloneCube();
+        this.createMannequin();
+    }
+
     initSocket() {
         console.log('init socket');
         this.socket = io('https://arenaserver.herokuapp.com/');
@@ -811,6 +753,13 @@ class Game {
         console.log('Activate pointerlock');
     }
 
+    activateGamePause() {
+        this.ui.pauseButton.addEventListener('click', () => {
+            this.toggle = !this.toggle;
+            this.toggle ? this.stopAnimation() : this.startAnimation();
+        });
+    }
+
     activateMovement() {
         document.addEventListener('keydown', (event) => {
             !this.inputDisabled && (this.Key[event.key] = true);
@@ -855,10 +804,12 @@ class Game {
             // Set rocket visible
             rocket.mesh.visible = true;
 
+            // Emit to other players
+            this.socket.emit('triggerRemoteRocket');
+
             this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
 
             console.log('Rocket fired');
-            this.socket.emit('triggerRemoteRocket');
         });
     }
 
@@ -890,11 +841,13 @@ class Game {
             .copy(playerDirection.negate())
             .multiplyScalar(this.rocketForce);
 
+        // Reset explode state
         rocket.mesh.userData.isExploded = false;
+
+        // Set rocket owner
         rocket.mesh.userData.shooter = playerID;
 
-        console.log(rocket.mesh.userData.shooter);
-
+        // Set visible
         rocket.mesh.visible = true;
 
         this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
@@ -1148,6 +1101,53 @@ class Game {
     // ------------------------------------------------
     // General functions
 
+    triggerDeath() {
+        console.log('You died');
+        document.exitPointerLock();
+        this.respawnWaitingRoom();
+        this.inputDisabled = true;
+        this.ui.respawnButton.style.pointerEvents = 'none';
+        this.ui.respawnButton.style.userSelect = 'none';
+        this.ui.respawnButton.style.display = 'block';
+        this.ui.respawnButton.lastChild.style.fontSize = '30px';
+        this.ui.respawnButton.lastChild.style.transform = 'translate(0px, 0px)';
+        this.ui.respawnButton.lastChild.textContent = `Respawn in 5`;
+
+        let countdown = 5;
+        const timer = setInterval(() => {
+            countdown--;
+            countdown <= 0 && clearInterval(timer);
+            this.ui.respawnButton.lastChild.textContent = `Respawn in ${countdown}`;
+        }, 1000);
+
+        setTimeout(() => {
+            console.log('You can now respawn');
+            this.inputDisabled = false;
+            this.ui.respawnButton.style.userSelect = 'unset';
+            this.ui.respawnButton.style.pointerEvents = 'unset';
+            this.ui.respawnButton.lastChild.textContent = `RESPAWN`;
+            this.ui.respawnButton.lastChild.style.fontSize = '40px';
+            this.ui.respawnButton.lastChild.style.transform =
+                'translate(8px, 8px)';
+        }, 5000);
+    }
+
+    triggerRespawn() {
+        console.log('Respawn triggered');
+        const distFromX = -this.playerCapsule.end.x;
+        const distToGround = Math.abs(this.playerCapsule.end.y);
+        const distFromZ = -this.playerCapsule.end.z;
+        this.playerCapsule.translate(
+            this.teleportVec.set(
+                distFromX + this.getRandomBetween(10, 120),
+                distToGround + 50,
+                distFromZ + this.getRandomBetween(10, 120)
+            )
+        );
+        this.playerVelocity.set(0, 0, 0);
+        this.gravity = 70;
+    }
+
     addChatMessage(username, message) {
         const usernameSpan = document.createElement('span');
         usernameSpan.style.color = '#0fff00';
@@ -1306,6 +1306,47 @@ class Game {
         );
         this.playerVelocity.set(0, 0, 0);
     }
+
+    // ------------------------------------------------
+    // In development functions
+
+    createCloneCube() {
+        const geometry = new THREE.BoxGeometry();
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        this.cube = new THREE.Mesh(geometry, material);
+        this.scene.add(this.cube);
+        // this.cube.position.set(10, 2, 10);
+    }
+
+    updateCloneCube() {
+        const position = this.playerCapsule.end;
+        this.cube.position.set(position.x + 2, position.y + 2, position.z + 2);
+    }
+
+    createMannequin() {
+        const headGeo = new THREE.BoxGeometry(1, 1, 1);
+        const bodyGeo = new THREE.BoxGeometry(0.7, 1, 0.7);
+        const gunGeo = new THREE.BoxGeometry(1.5, 0.2, 0.2);
+
+        const playerMat = new THREE.MeshNormalMaterial();
+        const gunMat = new THREE.MeshPhongMaterial();
+        gunMat.color = new THREE.Color(0x000000);
+
+        const playerHead = new THREE.Mesh(headGeo, playerMat);
+        const playerBody = new THREE.Mesh(bodyGeo, playerMat);
+        const playerGun = new THREE.Mesh(gunGeo, gunMat);
+
+        playerBody.position.set(0, -1, 0);
+        playerGun.position.set(0.3, -1, 0.5);
+
+        const playerModel = new THREE.Group();
+        playerModel.add(playerHead);
+        playerModel.add(playerBody);
+        playerModel.add(playerGun);
+
+        this.scene.add(playerModel);
+        playerModel.position.set(5, 0, 0);
+    }
 }
 
 function startAnimation() {
@@ -1315,7 +1356,6 @@ function startAnimation() {
 
 function stopAnimation() {
     cancelAnimationFrame(this.requestAnimId);
-    this.clock.stop();
 }
 
 function openForm() {
