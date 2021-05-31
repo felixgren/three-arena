@@ -138,7 +138,6 @@ class Game {
         const material = new THREE.MeshBasicMaterial({ color: 0x00ffff });
         this.cube = new THREE.Mesh(geometry, material);
         this.scene.add(this.cube);
-        // this.cube.position.set(10, 2, 10);
     }
 
     createMannequin() {
@@ -169,7 +168,6 @@ class Game {
     updateCloneCube() {
         const position = this.playerCapsule.end;
         this.cube.position.set(position.x + 2, position.y + 2, position.z + 2);
-        // this.cube.lookAt(this.lookVector());
     }
 
     // ------------------------------------------------
@@ -242,12 +240,6 @@ class Game {
         );
         this.camera.add(this.listener);
 
-        // const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-        // ambientLight.power = 30;
-        // this.scene.add(ambientLight);
-
-        // ---- MAYBE other init functions here such as field, playermodel, map, objects, rockets etc
-
         this.renderer = new THREE.WebGLRenderer({
             powerPreference: 'high-performance',
             antialias: false,
@@ -266,6 +258,7 @@ class Game {
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
         });
 
+        // Maybe other init functions here such as field, playermodel, map, objects, rockets etc in here
         console.log('init scene');
     }
 
@@ -283,19 +276,7 @@ class Game {
     }
 
     initMap() {
-        const ambientLight = new THREE.AmbientLight(0xddbf96, 0.6); // soft white light
-        this.scene.add(ambientLight);
-
-        // const pointLight = new THREE.PointLight(0xffffff, 0.5);
-        // // const pointLightHelper = new THREE.PointLightHelper(pointLight, 2, 500);
-        // pointLight.castShadow = true;
-        // pointLight.position.set(200, 50, 0);
-        // pointLight.shadow.radius = 3;
-
-        // // Point light helpers
-        // this.scene.add(pointLight);
-        // this.scene.add(pointLightHelper);
-
+        const ambientLight = new THREE.AmbientLight(0xddbf96, 0.6); // Soft white light
         const dirLight = new THREE.DirectionalLight(0xfcd6a4, 1);
 
         dirLight.position.set(-25, 250, 120);
@@ -308,9 +289,9 @@ class Game {
         dirLight.shadow.camera.bottom = -250;
         dirLight.shadow.mapSize.width = 4064;
         dirLight.shadow.mapSize.height = 4064;
-        // dirLight.target.position.set = (0, 0, 0);
-        // dirLight.shadow.bias = 0.1;
         dirLight.shadow.radius = 0.6;
+
+        this.scene.add(ambientLight);
         this.scene.add(dirLight);
 
         const gltfLoader = new GLTFLoader().setPath('models/');
@@ -333,29 +314,8 @@ class Game {
             });
             gltf.scene.scale.set(35, 35, 35);
             gltf.scene.position.set(-3, -10, -3);
-            // gltf.scene.castShadow = true;
             this.world.add(gltf.scene);
-
-            // Replaced with invisible nav mesh in editor
-            // this.worldOctree.fromGraphNode(gltf.scene);
         });
-
-        // Models FBX
-        // const fbxLoader = new FBXLoader().setPath('models/');
-        // fbxLoader.load('odyssey.fbx', (rock) => {
-        //     rock.traverse(function (child) {
-        //         if (child instanceof THREE.Mesh) {
-        //             // child.material.map = textureRock;
-        //             child.scale.setScalar(0.0045);
-        //             child.material.color.setHex(0xffffff);
-        //         }
-        //     });
-        //     rock.position.x = -150;
-        //     rock.position.z = 240;
-        //     rock.position.y = 200;
-        //     this.world.add(rock);
-        //     this.worldOctree.fromGraphNode(rock);
-        // });
 
         // TEST Objects
         const geometry = new THREE.IcosahedronGeometry(1);
@@ -378,9 +338,6 @@ class Game {
             color: '#030303',
             map: textureRock,
             shininess: 0,
-            // Properties for other materials
-            // roughness: 1,
-            // metalness: 0.4,
             displacementMap: displacementMap,
             displacementScale: 500,
             displacementBias: -0.428408,
@@ -485,8 +442,6 @@ class Game {
                     fragmentShader: explosionFragment,
                 });
 
-                // this.explosionMaterial.side = THREE.DoubleSide;
-
                 this.rocketExplosion = new THREE.Mesh(
                     new THREE.IcosahedronGeometry(10, 10),
                     this.explosionMaterial
@@ -540,9 +495,6 @@ class Game {
             coolExplosion.name = 'explosion';
             this.scene.add(coolRocket);
             coolRocket.add(coolExplosion);
-
-            // rocket.mesh.add(this.rocketExplosion);
-            // this.rocketExplosion.position.set(0, 0, 0);
 
             this.rockets.push({
                 mesh: coolRocket,
@@ -658,7 +610,7 @@ class Game {
         this.players[playerID] = {};
         this.players[playerID].mesh = remotePlayer;
         this.players[playerID].positionSync = new THREE.Vector3();
-        // this.players[playerID].lookDirection = new THREE.Vector3();
+        this.players[playerID].lookDirection = new THREE.Vector3();
 
         console.log(`${playerID} added to the scene!`);
         console.log(this.players);
@@ -670,10 +622,10 @@ class Game {
         console.log(this.players);
     }
 
-    // Maybe vectors should be reused here
     updateRemotePlayers(remotePlayers) {
         for (let id in remotePlayers) {
             if (id != this.player.id) {
+                // Should not forget to reuse vectors
                 this.players[id].positionSync = new THREE.Vector3().fromArray(
                     remotePlayers[id].position
                 );
@@ -681,28 +633,18 @@ class Game {
                     remotePlayers[id].direction
                 );
 
-                // this.players[id].lookDirection.z = 0;
-
-                // Set mesh position
+                // Set player position
                 this.players[id].mesh.position.set(
                     this.players[id].positionSync.x,
                     this.players[id].positionSync.y,
                     this.players[id].positionSync.z
                 );
 
-                //Set mesh rotation
+                // Set head rotation
                 this.players[id].mesh.rotation.y =
                     this.players[id].lookDirection.x;
                 this.players[id].mesh.rotation.x =
                     this.players[id].lookDirection.y;
-
-                // this.players[id].mesh.lookAt(this.players[id].lookDirection);
-                // this.camera.rotation.order = 'YXZ';
-
-                // this.players[id].mesh.rotation.setFromVector3(
-                //     this.lookVector(),
-                //     'YXZ'
-                // );
             }
         }
     }
@@ -831,7 +773,7 @@ class Game {
         this.frontRocketLight.power = 120;
         this.backRocketLight.power = 100;
         this.frontRocketLight.distance = 10;
-        this.backRocketLight.distance = 10; // use for animation
+        this.backRocketLight.distance = 10; // Could be used for explosion animation
 
         // Spawn Position
         rocket.collider.center.copy(playerPosition);
@@ -931,10 +873,6 @@ class Game {
     updatePlayerMovement(delta) {
         const deltaPosition = this.playerVelocity.clone().multiplyScalar(delta);
 
-        // This can be used for movement without momentum
-        // camera.position.copy(deltaPosition);
-
-        // This is movement with momentum.
         this.playerCapsule.translate(deltaPosition);
         this.camera.position.copy(this.playerCapsule.end);
 
@@ -1048,7 +986,7 @@ class Game {
                     explodeMesh.scale.set(size, size, size);
                 }
             } else {
-                // In air
+                // Whilst in air
                 rocket.velocity.y -= (this.gravity / 15) * delta;
             }
 
@@ -1095,7 +1033,6 @@ class Game {
         if (performance.now() - this.lastTime < 1000 / 1) return;
         this.lastTime = performance.now();
         this.drawCallPanel.update(this.renderer.info.render.calls);
-        // this.checkPlayerData();
     }
 
     // ------------------------------------------------
@@ -1271,18 +1208,6 @@ class Game {
         return this;
     }
 
-    checkPlayerData() {
-        const playerVelocity = this.playerVelocity.clone();
-        const position = this.playerCapsule.end;
-        const look = this.lookVector();
-        console.log('Velocity is');
-        console.log(playerVelocity);
-        console.log('Position is');
-        console.log(position);
-        console.log('Look direction is');
-        console.log(look);
-    }
-
     getRandomBetween(min, max) {
         return Math.random() * (max - min) + min;
     }
@@ -1315,7 +1240,6 @@ class Game {
         const material = new THREE.MeshBasicMaterial({ color: 0x00ffff });
         this.cube = new THREE.Mesh(geometry, material);
         this.scene.add(this.cube);
-        // this.cube.position.set(10, 2, 10);
     }
 
     updateCloneCube() {
@@ -1346,6 +1270,18 @@ class Game {
 
         this.scene.add(playerModel);
         playerModel.position.set(5, 0, 0);
+    }
+
+    checkPlayerData() {
+        const playerVelocity = this.playerVelocity.clone();
+        const position = this.playerCapsule.end;
+        const look = this.lookVector();
+        console.log('Velocity is');
+        console.log(playerVelocity);
+        console.log('Position is');
+        console.log(position);
+        console.log('Look direction is');
+        console.log(look);
     }
 }
 
