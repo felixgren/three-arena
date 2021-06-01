@@ -43,6 +43,7 @@ class Game {
 
         this.toggle = false;
         this.collisionsEnabled = true;
+        this.playerFocused = false;
         this.inputDisabled = false;
 
         this.rockets = [];
@@ -359,7 +360,7 @@ class Game {
         sphere.position.set(0, 75, 0);
         sphere.scale.set(2, 2, 2);
 
-        this.world.add(bgfull);
+        this.scene.add(bgfull);
         this.world.add(sphere);
         this.scene.add(this.world);
         this.worldOctree.fromGraphNode(this.world);
@@ -380,7 +381,7 @@ class Game {
         );
 
         this.triggerRespawn();
-        this.playerCapsule.translate(this.teleportVec.set(0, 200, 0));
+        this.playerCapsule.translate(this.teleportVec.set(0, 100, 0));
 
         console.log('init player');
     }
@@ -681,12 +682,17 @@ class Game {
             }
         });
 
+        document.addEventListener('pointerlockchange', () => {
+            this.playerFocused = document.pointerLockElement === this.ui.body;
+            console.log(`Player Focus is ${this.playerFocused}`);
+        });
+
         document.addEventListener(
             'click',
-            (e) => {
+            (event) => {
                 if (this.inputDisabled) {
-                    e.stopPropagation();
-                    e.preventDefault();
+                    event.stopPropagation();
+                    event.preventDefault();
                 }
             },
             true
@@ -865,21 +871,35 @@ class Game {
                 this.playerVelocity,
                 -5 * delta
             );
-        } else {
+        } else if (this.playerFocused) {
             this.playerVelocity.y -= this.gravity * delta;
         }
     }
 
     updatePlayerMovement(delta) {
-        const deltaPosition = this.playerVelocity.clone().multiplyScalar(delta);
+        // if (this.collisionsEnabled) {
+        this.playerCollision();
+        // }
 
-        this.playerCapsule.translate(deltaPosition);
-        this.camera.position.copy(this.playerCapsule.end);
+        if (this.playerFocused) {
+            const deltaPosition = this.playerVelocity
+                .clone()
+                .multiplyScalar(delta);
+            this.playerCapsule.translate(deltaPosition);
+            this.camera.position.copy(this.playerCapsule.end);
 
-        this.uploadMovementData();
+            this.uploadMovementData();
+        }
 
-        if (this.collisionsEnabled) {
-            this.playerCollision();
+        if (
+            this.camera.position.y < -10 &&
+            Math.abs(this.camera.position.x) <= 125 &&
+            Math.abs(this.camera.position.z) <= 125
+        ) {
+            console.log('Player glitched through floor, correction applied');
+            this.teleportToGround();
+            this.playerVelocity.setY(0);
+            // this.collisionsEnabled = true;
         }
 
         if (this.camera.position.y < -200) {
@@ -888,21 +908,18 @@ class Game {
             this.camera.position.y < -500 && (pushForce = 500);
             this.playerVelocity.set(0, 0, 0);
             this.playerVelocity.y = pushForce;
-            this.collisionsEnabled = false;
+            // this.collisionsEnabled = false;
 
             if (this.camera.position.y < -1000) {
                 console.log('Player way off, teleported back up');
-                const distToGround = Math.abs(this.playerCapsule.end.y);
-                this.playerCapsule.translate(
-                    this.teleportVec.set(0, distToGround + 50, 0)
-                );
+                this.teleportToGround(50);
                 this.playerVelocity.set(0, 0, 0);
             }
 
             setTimeout(() => {
                 this.camera.position.y > -200 &&
                     console.log('World collisions re-enabled');
-                this.collisionsEnabled = true;
+                // this.collisionsEnabled = true;
             }, 2500);
         }
     }
@@ -1210,6 +1227,13 @@ class Game {
 
     getRandomBetween(min, max) {
         return Math.random() * (max - min) + min;
+    }
+
+    teleportToGround(extraDistance = 0) {
+        const distToGround = Math.abs(this.playerCapsule.end.y);
+        this.playerCapsule.translate(
+            this.teleportVec.set(0, distToGround + extraDistance, 0)
+        );
     }
 
     toggleInputs() {
