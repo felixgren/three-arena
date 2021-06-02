@@ -723,41 +723,50 @@ class Game {
     }
 
     activateRocketShooting() {
+        let canShoot = true;
+
         document.addEventListener('click', () => {
-            // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
-            const rocket = this.rockets[this.rocketIdx];
+            if (canShoot) {
+                // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
+                const rocket = this.rockets[this.rocketIdx];
 
-            // Align rocket to look direction
-            rocket.mesh.lookAt(this.lookVector().negate());
+                // Align rocket to look direction
+                rocket.mesh.lookAt(this.lookVector().negate());
 
-            rocket.mesh.add(this.frontRocketLight, this.backRocketLight);
-            this.frontRocketLight.position.set(0, -1.1, 0);
-            this.backRocketLight.position.set(0, -1.2, 0);
-            this.frontRocketLight.power = 120;
-            this.backRocketLight.power = 100;
-            this.frontRocketLight.distance = 10;
-            this.backRocketLight.distance = 10; // use for animation
+                rocket.mesh.add(this.frontRocketLight, this.backRocketLight);
+                this.frontRocketLight.position.set(0, -1.1, 0);
+                this.backRocketLight.position.set(0, -1.2, 0);
+                this.frontRocketLight.power = 120;
+                this.backRocketLight.power = 100;
+                this.frontRocketLight.distance = 10;
+                this.backRocketLight.distance = 10; // use for animation
 
-            // Copy player head pos to projectile center
-            rocket.collider.center.copy(this.playerCapsule.end);
+                // Copy player head pos to projectile center
+                rocket.collider.center.copy(this.playerCapsule.end);
 
-            // Apply force in look direction
-            rocket.velocity
-                .copy(this.lookVector())
-                .multiplyScalar(this.rocketForce);
+                // Apply force in look direction
+                rocket.velocity
+                    .copy(this.lookVector())
+                    .multiplyScalar(this.rocketForce);
 
-            // Reset explode state
-            rocket.mesh.userData.isExploded = false;
+                // Reset explode state
+                rocket.mesh.userData.isExploded = false;
 
-            // Set rocket visible
-            rocket.mesh.visible = true;
+                // Set rocket visible
+                rocket.mesh.visible = true;
 
-            // Emit to other players
-            this.socket.emit('triggerRemoteRocket');
+                // Emit to other players
+                this.socket.emit('triggerRemoteRocket');
 
-            this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
+                this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
 
-            console.log('Rocket fired');
+                canShoot = false;
+                console.log('Rocket fired');
+
+                setTimeout(() => {
+                    canShoot = true;
+                }, 500);
+            }
         });
     }
 
