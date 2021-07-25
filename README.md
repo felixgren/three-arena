@@ -4,7 +4,7 @@
 
 An arena shooter created in three.js. Shoot your friends in this simple socket.io multiplayer game.
 
-<strong> Join now at: https://three-arena.vercel.app/ </strong>
+<strong> Join now at: https://three-arena-c5rthrmn1-felixgren.vercel.app/ </strong>
 
 This game was created using the following technologies:
 
