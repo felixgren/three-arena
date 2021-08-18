@@ -5,14 +5,8 @@ import io from 'socket.io-client';
 import Stats from 'three/examples/jsm/libs/stats.module';
 import { Capsule } from 'three/examples/jsm/math/Capsule';
 import { Octree } from 'three/examples/jsm/math/Octree';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
-import { DiscreteInterpolant, PlaneBufferGeometry, TextureLoader } from 'three';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
-import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib';
-import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper';
 import { Sprite, SpriteMaterial, OrthographicCamera, Scene } from 'three';
 import explosionFragment from '../shader/Explosion.frag';
 import explosionVertex from '../shader/Explosion.vert';
@@ -39,8 +33,7 @@ class Game {
         this.isPlayerGrounded = false;
         this.playerSpeed = 50;
         this.playerVelocity = null;
-        // Better performance to reuse same vector
-        this.teleportVec = new THREE.Vector3(0, 0, 0);
+        this.teleportVec = new THREE.Vector3(0, 0, 0); // Better performance to reuse same vector
 
         this.Key = {};
         this.controls = null;
@@ -50,6 +43,7 @@ class Game {
 
         this.toggle = false;
         this.collisionsEnabled = true;
+        this.playerFocused = false;
         this.inputDisabled = false;
 
         this.rockets = [];
@@ -104,9 +98,8 @@ class Game {
             this.initCrosshair();
             this.initExplosion();
             this.initStats();
+            this.initDevWIP();
             this.initSocket();
-            // this.createCloneCube();
-            this.createMannequin();
         });
     }
 
@@ -117,64 +110,9 @@ class Game {
         this.activatePointerLock();
         this.activateMovement();
         this.activateRocketShooting();
+        this.activateGamePause();
         this.startAnimation(); // Starts tick function
         this.addChatMessage('Admin', 'Welcome to three arena.');
-    }
-
-    pauseGame() {
-        this.ui.pauseButton.addEventListener('click', () => {
-            this.toggle = !this.toggle;
-            this.toggle ? this.stopAnimation() : this.startAnimation();
-        });
-    }
-
-    triggerDeath() {
-        console.log('You died');
-        document.exitPointerLock();
-        this.respawnWaitingRoom();
-        this.inputDisabled = true;
-        this.ui.respawnButton.style.pointerEvents = 'none';
-        this.ui.respawnButton.style.userSelect = 'none';
-        this.ui.respawnButton.style.display = 'block';
-        this.ui.respawnButton.lastChild.style.fontSize = '30px';
-        this.ui.respawnButton.lastChild.style.transform = 'translate(0px, 0px)';
-        this.ui.respawnButton.lastChild.textContent = `Respawn in 5`;
-
-        let countdown = 5;
-        const timer = setInterval(() => {
-            countdown--;
-            countdown <= 0 && clearInterval(timer);
-            this.ui.respawnButton.lastChild.textContent = `Respawn in ${countdown}`;
-        }, 1000);
-
-        setTimeout(() => {
-            console.log('You can now respawn');
-            this.inputDisabled = false;
-            this.ui.respawnButton.style.userSelect = 'unset';
-            this.ui.respawnButton.style.pointerEvents = 'unset';
-            this.ui.respawnButton.lastChild.textContent = `RESPAWN`;
-            this.ui.respawnButton.lastChild.style.fontSize = '40px';
-            this.ui.respawnButton.lastChild.style.transform =
-                'translate(8px, 8px)';
-        }, 5000);
-    }
-
-    triggerRespawn() {
-        console.log('respawn trigger');
-
-        // Respawn player
-        const distFromX = -this.playerCapsule.end.x;
-        const distToGround = Math.abs(this.playerCapsule.end.y);
-        const distFromZ = -this.playerCapsule.end.z;
-        this.playerCapsule.translate(
-            this.teleportVec.set(
-                distFromX + this.getRandomBetween(10, 120),
-                distToGround + 50,
-                distFromZ + this.getRandomBetween(10, 120)
-            )
-        );
-        this.playerVelocity.set(0, 0, 0);
-        this.gravity = 70;
     }
 
     // Main update game function
@@ -188,7 +126,7 @@ class Game {
         this.updateRockets(delta);
         this.updateChatList();
         this.updateStats();
-        // this.updateCloneCube();
+        this.updateCloneCube();
 
         this.stats.update();
         this.renderer.render(this.scene, this.camera);
@@ -201,7 +139,6 @@ class Game {
         const material = new THREE.MeshBasicMaterial({ color: 0x00ffff });
         this.cube = new THREE.Mesh(geometry, material);
         this.scene.add(this.cube);
-        // this.cube.position.set(10, 2, 10);
     }
 
     createMannequin() {
@@ -232,7 +169,6 @@ class Game {
     updateCloneCube() {
         const position = this.playerCapsule.end;
         this.cube.position.set(position.x + 2, position.y + 2, position.z + 2);
-        // this.cube.lookAt(this.lookVector());
     }
 
     // ------------------------------------------------
@@ -305,12 +241,6 @@ class Game {
         );
         this.camera.add(this.listener);
 
-        // const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
-        // ambientLight.power = 30;
-        // this.scene.add(ambientLight);
-
-        // ---- MAYBE other init functions here such as field, playermodel, map, objects, rockets etc
-
         this.renderer = new THREE.WebGLRenderer({
             powerPreference: 'high-performance',
             antialias: false,
@@ -329,6 +259,7 @@ class Game {
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
         });
 
+        // Maybe other init functions here such as field, playermodel, map, objects, rockets etc in here
         console.log('init scene');
     }
 
@@ -346,19 +277,7 @@ class Game {
     }
 
     initMap() {
-        const ambientLight = new THREE.AmbientLight(0xddbf96, 0.6); // soft white light
-        this.scene.add(ambientLight);
-
-        // const pointLight = new THREE.PointLight(0xffffff, 0.5);
-        // // const pointLightHelper = new THREE.PointLightHelper(pointLight, 2, 500);
-        // pointLight.castShadow = true;
-        // pointLight.position.set(200, 50, 0);
-        // pointLight.shadow.radius = 3;
-
-        // // Point light helpers
-        // this.scene.add(pointLight);
-        // this.scene.add(pointLightHelper);
-
+        const ambientLight = new THREE.AmbientLight(0xddbf96, 0.6); // Soft white light
         const dirLight = new THREE.DirectionalLight(0xfcd6a4, 1);
 
         dirLight.position.set(-25, 250, 120);
@@ -371,9 +290,9 @@ class Game {
         dirLight.shadow.camera.bottom = -250;
         dirLight.shadow.mapSize.width = 4064;
         dirLight.shadow.mapSize.height = 4064;
-        // dirLight.target.position.set = (0, 0, 0);
-        // dirLight.shadow.bias = 0.1;
         dirLight.shadow.radius = 0.6;
+
+        this.scene.add(ambientLight);
         this.scene.add(dirLight);
 
         const gltfLoader = new GLTFLoader().setPath('models/');
@@ -396,29 +315,8 @@ class Game {
             });
             gltf.scene.scale.set(35, 35, 35);
             gltf.scene.position.set(-3, -10, -3);
-            // gltf.scene.castShadow = true;
             this.world.add(gltf.scene);
-
-            // Replaced with invisible nav mesh in editor
-            // this.worldOctree.fromGraphNode(gltf.scene);
         });
-
-        // Models FBX
-        // const fbxLoader = new FBXLoader().setPath('models/');
-        // fbxLoader.load('odyssey.fbx', (rock) => {
-        //     rock.traverse(function (child) {
-        //         if (child instanceof THREE.Mesh) {
-        //             // child.material.map = textureRock;
-        //             child.scale.setScalar(0.0045);
-        //             child.material.color.setHex(0xffffff);
-        //         }
-        //     });
-        //     rock.position.x = -150;
-        //     rock.position.z = 240;
-        //     rock.position.y = 200;
-        //     this.world.add(rock);
-        //     this.worldOctree.fromGraphNode(rock);
-        // });
 
         // TEST Objects
         const geometry = new THREE.IcosahedronGeometry(1);
@@ -441,9 +339,6 @@ class Game {
             color: '#030303',
             map: textureRock,
             shininess: 0,
-            // Properties for other materials
-            // roughness: 1,
-            // metalness: 0.4,
             displacementMap: displacementMap,
             displacementScale: 500,
             displacementBias: -0.428408,
@@ -465,7 +360,7 @@ class Game {
         sphere.position.set(0, 75, 0);
         sphere.scale.set(2, 2, 2);
 
-        this.world.add(bgfull);
+        this.scene.add(bgfull);
         this.world.add(sphere);
         this.scene.add(this.world);
         this.worldOctree.fromGraphNode(this.world);
@@ -486,7 +381,7 @@ class Game {
         );
 
         this.triggerRespawn();
-        this.playerCapsule.translate(this.teleportVec.set(0, 200, 0));
+        this.playerCapsule.translate(this.teleportVec.set(0, 100, 0));
 
         console.log('init player');
     }
@@ -548,8 +443,6 @@ class Game {
                     fragmentShader: explosionFragment,
                 });
 
-                // this.explosionMaterial.side = THREE.DoubleSide;
-
                 this.rocketExplosion = new THREE.Mesh(
                     new THREE.IcosahedronGeometry(10, 10),
                     this.explosionMaterial
@@ -604,9 +497,6 @@ class Game {
             this.scene.add(coolRocket);
             coolRocket.add(coolExplosion);
 
-            // rocket.mesh.add(this.rocketExplosion);
-            // this.rocketExplosion.position.set(0, 0, 0);
-
             this.rockets.push({
                 mesh: coolRocket,
                 collider: new THREE.Sphere(new THREE.Vector3(0, -50, 0), 0.5),
@@ -627,6 +517,11 @@ class Game {
         this.ui.body.appendChild(this.stats.domElement);
 
         this.lastTime = performance.now();
+    }
+
+    initDevWIP() {
+        this.createCloneCube();
+        this.createMannequin();
     }
 
     initSocket() {
@@ -716,7 +611,7 @@ class Game {
         this.players[playerID] = {};
         this.players[playerID].mesh = remotePlayer;
         this.players[playerID].positionSync = new THREE.Vector3();
-        // this.players[playerID].lookDirection = new THREE.Vector3();
+        this.players[playerID].lookDirection = new THREE.Vector3();
 
         console.log(`${playerID} added to the scene!`);
         console.log(this.players);
@@ -728,10 +623,10 @@ class Game {
         console.log(this.players);
     }
 
-    // Maybe vectors should be reused here
     updateRemotePlayers(remotePlayers) {
         for (let id in remotePlayers) {
             if (id != this.player.id) {
+                // Should not forget to reuse vectors
                 this.players[id].positionSync = new THREE.Vector3().fromArray(
                     remotePlayers[id].position
                 );
@@ -739,28 +634,18 @@ class Game {
                     remotePlayers[id].direction
                 );
 
-                // this.players[id].lookDirection.z = 0;
-
-                // Set mesh position
+                // Set player position
                 this.players[id].mesh.position.set(
                     this.players[id].positionSync.x,
                     this.players[id].positionSync.y,
                     this.players[id].positionSync.z
                 );
 
-                //Set mesh rotation
+                // Set head rotation
                 this.players[id].mesh.rotation.y =
                     this.players[id].lookDirection.x;
                 this.players[id].mesh.rotation.x =
                     this.players[id].lookDirection.y;
-
-                // this.players[id].mesh.lookAt(this.players[id].lookDirection);
-                // this.camera.rotation.order = 'YXZ';
-
-                // this.players[id].mesh.rotation.setFromVector3(
-                //     this.lookVector(),
-                //     'YXZ'
-                // );
             }
         }
     }
@@ -797,18 +682,30 @@ class Game {
             }
         });
 
+        document.addEventListener('pointerlockchange', () => {
+            this.playerFocused = document.pointerLockElement === this.ui.body;
+            console.log(`Player Focus is ${this.playerFocused}`);
+        });
+
         document.addEventListener(
             'click',
-            (e) => {
+            (event) => {
                 if (this.inputDisabled) {
-                    e.stopPropagation();
-                    e.preventDefault();
+                    event.stopPropagation();
+                    event.preventDefault();
                 }
             },
             true
         );
 
         console.log('Activate pointerlock');
+    }
+
+    activateGamePause() {
+        this.ui.pauseButton.addEventListener('click', () => {
+            this.toggle = !this.toggle;
+            this.toggle ? this.stopAnimation() : this.startAnimation();
+        });
     }
 
     activateMovement() {
@@ -826,39 +723,50 @@ class Game {
     }
 
     activateRocketShooting() {
+        let canShoot = true;
+
         document.addEventListener('click', () => {
-            // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
-            const rocket = this.rockets[this.rocketIdx];
+            if (canShoot) {
+                // Currently bug causes rocket to misalign after reaching maxRocket count, AKA when rocketIdx is reset.
+                const rocket = this.rockets[this.rocketIdx];
 
-            // Align rocket to look direction
-            rocket.mesh.lookAt(this.lookVector().negate());
+                // Align rocket to look direction
+                rocket.mesh.lookAt(this.lookVector().negate());
 
-            rocket.mesh.add(this.frontRocketLight, this.backRocketLight);
-            this.frontRocketLight.position.set(0, -1.1, 0);
-            this.backRocketLight.position.set(0, -1.2, 0);
-            this.frontRocketLight.power = 120;
-            this.backRocketLight.power = 100;
-            this.frontRocketLight.distance = 10;
-            this.backRocketLight.distance = 10; // use for animation
+                rocket.mesh.add(this.frontRocketLight, this.backRocketLight);
+                this.frontRocketLight.position.set(0, -1.1, 0);
+                this.backRocketLight.position.set(0, -1.2, 0);
+                this.frontRocketLight.power = 120;
+                this.backRocketLight.power = 100;
+                this.frontRocketLight.distance = 10;
+                this.backRocketLight.distance = 10; // use for animation
 
-            // Copy player head pos to projectile center
-            rocket.collider.center.copy(this.playerCapsule.end);
+                // Copy player head pos to projectile center
+                rocket.collider.center.copy(this.playerCapsule.end);
 
-            // Apply force in look direction
-            rocket.velocity
-                .copy(this.lookVector())
-                .multiplyScalar(this.rocketForce);
+                // Apply force in look direction
+                rocket.velocity
+                    .copy(this.lookVector())
+                    .multiplyScalar(this.rocketForce);
 
-            // Reset explode state
-            rocket.mesh.userData.isExploded = false;
+                // Reset explode state
+                rocket.mesh.userData.isExploded = false;
 
-            // Set rocket visible
-            rocket.mesh.visible = true;
+                // Set rocket visible
+                rocket.mesh.visible = true;
 
-            this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
+                // Emit to other players
+                this.socket.emit('triggerRemoteRocket');
 
-            console.log('Rocket fired');
-            this.socket.emit('triggerRemoteRocket');
+                this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
+
+                canShoot = false;
+                console.log('Rocket fired');
+
+                setTimeout(() => {
+                    canShoot = true;
+                }, 500);
+            }
         });
     }
 
@@ -880,7 +788,7 @@ class Game {
         this.frontRocketLight.power = 120;
         this.backRocketLight.power = 100;
         this.frontRocketLight.distance = 10;
-        this.backRocketLight.distance = 10; // use for animation
+        this.backRocketLight.distance = 10; // Could be used for explosion animation
 
         // Spawn Position
         rocket.collider.center.copy(playerPosition);
@@ -890,11 +798,13 @@ class Game {
             .copy(playerDirection.negate())
             .multiplyScalar(this.rocketForce);
 
+        // Reset explode state
         rocket.mesh.userData.isExploded = false;
+
+        // Set rocket owner
         rocket.mesh.userData.shooter = playerID;
 
-        console.log(rocket.mesh.userData.shooter);
-
+        // Set visible
         rocket.mesh.visible = true;
 
         this.rocketIdx = (this.rocketIdx + 1) % this.rockets.length;
@@ -970,25 +880,35 @@ class Game {
                 this.playerVelocity,
                 -5 * delta
             );
-        } else {
+        } else if (this.playerFocused) {
             this.playerVelocity.y -= this.gravity * delta;
         }
     }
 
     updatePlayerMovement(delta) {
-        const deltaPosition = this.playerVelocity.clone().multiplyScalar(delta);
+        // if (this.collisionsEnabled) {
+        this.playerCollision();
+        // }
 
-        // This can be used for movement without momentum
-        // camera.position.copy(deltaPosition);
+        if (this.playerFocused) {
+            const deltaPosition = this.playerVelocity
+                .clone()
+                .multiplyScalar(delta);
+            this.playerCapsule.translate(deltaPosition);
+            this.camera.position.copy(this.playerCapsule.end);
 
-        // This is movement with momentum.
-        this.playerCapsule.translate(deltaPosition);
-        this.camera.position.copy(this.playerCapsule.end);
+            this.uploadMovementData();
+        }
 
-        this.uploadMovementData();
-
-        if (this.collisionsEnabled) {
-            this.playerCollision();
+        if (
+            this.camera.position.y < -10 &&
+            Math.abs(this.camera.position.x) <= 125 &&
+            Math.abs(this.camera.position.z) <= 125
+        ) {
+            console.log('Player glitched through floor, correction applied');
+            this.teleportToGround();
+            this.playerVelocity.setY(0);
+            // this.collisionsEnabled = true;
         }
 
         if (this.camera.position.y < -200) {
@@ -997,21 +917,18 @@ class Game {
             this.camera.position.y < -500 && (pushForce = 500);
             this.playerVelocity.set(0, 0, 0);
             this.playerVelocity.y = pushForce;
-            this.collisionsEnabled = false;
+            // this.collisionsEnabled = false;
 
             if (this.camera.position.y < -1000) {
                 console.log('Player way off, teleported back up');
-                const distToGround = Math.abs(this.playerCapsule.end.y);
-                this.playerCapsule.translate(
-                    this.teleportVec.set(0, distToGround + 50, 0)
-                );
+                this.teleportToGround(50);
                 this.playerVelocity.set(0, 0, 0);
             }
 
             setTimeout(() => {
                 this.camera.position.y > -200 &&
                     console.log('World collisions re-enabled');
-                this.collisionsEnabled = true;
+                // this.collisionsEnabled = true;
             }, 2500);
         }
     }
@@ -1095,7 +1012,7 @@ class Game {
                     explodeMesh.scale.set(size, size, size);
                 }
             } else {
-                // In air
+                // Whilst in air
                 rocket.velocity.y -= (this.gravity / 15) * delta;
             }
 
@@ -1142,11 +1059,57 @@ class Game {
         if (performance.now() - this.lastTime < 1000 / 1) return;
         this.lastTime = performance.now();
         this.drawCallPanel.update(this.renderer.info.render.calls);
-        // this.checkPlayerData();
     }
 
     // ------------------------------------------------
     // General functions
+
+    triggerDeath() {
+        console.log('You died');
+        document.exitPointerLock();
+        this.respawnWaitingRoom();
+        this.inputDisabled = true;
+        this.ui.respawnButton.style.pointerEvents = 'none';
+        this.ui.respawnButton.style.userSelect = 'none';
+        this.ui.respawnButton.style.display = 'block';
+        this.ui.respawnButton.lastChild.style.fontSize = '30px';
+        this.ui.respawnButton.lastChild.style.transform = 'translate(0px, 0px)';
+        this.ui.respawnButton.lastChild.textContent = `Respawn in 5`;
+
+        let countdown = 5;
+        const timer = setInterval(() => {
+            countdown--;
+            countdown <= 0 && clearInterval(timer);
+            this.ui.respawnButton.lastChild.textContent = `Respawn in ${countdown}`;
+        }, 1000);
+
+        setTimeout(() => {
+            console.log('You can now respawn');
+            this.inputDisabled = false;
+            this.ui.respawnButton.style.userSelect = 'unset';
+            this.ui.respawnButton.style.pointerEvents = 'unset';
+            this.ui.respawnButton.lastChild.textContent = `RESPAWN`;
+            this.ui.respawnButton.lastChild.style.fontSize = '40px';
+            this.ui.respawnButton.lastChild.style.transform =
+                'translate(8px, 8px)';
+        }, 5000);
+    }
+
+    triggerRespawn() {
+        console.log('Respawn triggered');
+        const distFromX = -this.playerCapsule.end.x;
+        const distToGround = Math.abs(this.playerCapsule.end.y);
+        const distFromZ = -this.playerCapsule.end.z;
+        this.playerCapsule.translate(
+            this.teleportVec.set(
+                distFromX + this.getRandomBetween(10, 120),
+                distToGround + 50,
+                distFromZ + this.getRandomBetween(10, 120)
+            )
+        );
+        this.playerVelocity.set(0, 0, 0);
+        this.gravity = 70;
+    }
 
     addChatMessage(username, message) {
         const usernameSpan = document.createElement('span');
@@ -1271,20 +1234,15 @@ class Game {
         return this;
     }
 
-    checkPlayerData() {
-        const playerVelocity = this.playerVelocity.clone();
-        const position = this.playerCapsule.end;
-        const look = this.lookVector();
-        console.log('Velocity is');
-        console.log(playerVelocity);
-        console.log('Position is');
-        console.log(position);
-        console.log('Look direction is');
-        console.log(look);
-    }
-
     getRandomBetween(min, max) {
         return Math.random() * (max - min) + min;
+    }
+
+    teleportToGround(extraDistance = 0) {
+        const distToGround = Math.abs(this.playerCapsule.end.y);
+        this.playerCapsule.translate(
+            this.teleportVec.set(0, distToGround + extraDistance, 0)
+        );
     }
 
     toggleInputs() {
@@ -1306,6 +1264,58 @@ class Game {
         );
         this.playerVelocity.set(0, 0, 0);
     }
+
+    // ------------------------------------------------
+    // In development functions
+
+    createCloneCube() {
+        const geometry = new THREE.BoxGeometry();
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        this.cube = new THREE.Mesh(geometry, material);
+        this.scene.add(this.cube);
+    }
+
+    updateCloneCube() {
+        const position = this.playerCapsule.end;
+        this.cube.position.set(position.x + 2, position.y + 2, position.z + 2);
+    }
+
+    createMannequin() {
+        const headGeo = new THREE.BoxGeometry(1, 1, 1);
+        const bodyGeo = new THREE.BoxGeometry(0.7, 1, 0.7);
+        const gunGeo = new THREE.BoxGeometry(1.5, 0.2, 0.2);
+
+        const playerMat = new THREE.MeshNormalMaterial();
+        const gunMat = new THREE.MeshPhongMaterial();
+        gunMat.color = new THREE.Color(0x000000);
+
+        const playerHead = new THREE.Mesh(headGeo, playerMat);
+        const playerBody = new THREE.Mesh(bodyGeo, playerMat);
+        const playerGun = new THREE.Mesh(gunGeo, gunMat);
+
+        playerBody.position.set(0, -1, 0);
+        playerGun.position.set(0.3, -1, 0.5);
+
+        const playerModel = new THREE.Group();
+        playerModel.add(playerHead);
+        playerModel.add(playerBody);
+        playerModel.add(playerGun);
+
+        this.scene.add(playerModel);
+        playerModel.position.set(5, 0, 0);
+    }
+
+    checkPlayerData() {
+        const playerVelocity = this.playerVelocity.clone();
+        const position = this.playerCapsule.end;
+        const look = this.lookVector();
+        console.log('Velocity is');
+        console.log(playerVelocity);
+        console.log('Position is');
+        console.log(position);
+        console.log('Look direction is');
+        console.log(look);
+    }
 }
 
 function startAnimation() {
@@ -1315,7 +1325,6 @@ function startAnimation() {
 
 function stopAnimation() {
     cancelAnimationFrame(this.requestAnimId);
-    this.clock.stop();
 }
 
 function openForm() {

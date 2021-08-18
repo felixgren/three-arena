@@ -2,7 +2,7 @@
 
 # Three Arena
 
-An arena shooter created in three.js.
+An arena shooter created in three.js. Shoot your friends in this simple socket.io multiplayer game.
 
 <strong> Join now at: https://three-arena-c5rthrmn1-felixgren.vercel.app/ </strong>
 
@@ -54,6 +54,9 @@ npm run server
 -   [#8 - Refactored entire project](https://github.com/felixgren/level-up/pull/8/)
 -   [#9 - Code Review](https://github.com/felixgren/three-arena/pull/9)
 -   [#10 - Core Features 1 (Multiplayer, Chat, Explosions, etc)](https://github.com/felixgren/three-arena/pull/10/)
+-   [#11 - Environment 2 (New Map)](https://github.com/felixgren/three-arena/pull/11/)
+-   [#12 - Core Features 2 (Respawn, UI, Chat types)](https://github.com/felixgren/three-arena/pull/12/)
+-   [#13 - Core Features 3 (General improvements)](https://github.com/felixgren/three-arena/pull/13/)
 
 # Code Review
 
