@@ -4,7 +4,7 @@
 
 An arena shooter created in three.js. Shoot your friends in this simple socket.io multiplayer game.
 
-<strong> Join now at: https://three-arena-c5rthrmn1-felixgren.vercel.app/ </strong>
+<strong> Join now at: https://www.shootyourfriends.com/ </strong>
 
 This game was created using the following technologies:
 
@@ -70,19 +70,3 @@ npm run server
 8. Instructions how to play.
 9. We dont really understand the game :)
 10. Gives warnings when running "npm run build".
-
-# Testers
-
-Tested by the following people:
-
-1. Jane Doe
-2. John Doe
-3. Jane Doe
-4. John Doe
-
-Tested by the following muggles (non-coders):
-
-1. Jane Doe
-2. John Doe
-3. Jane Doe
-4. John Doe
