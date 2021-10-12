@@ -1,10 +1,9 @@
 <p align="center"><a href="https://youtu.be/8coHwAm-LyI" target="_blank"><img src="https://media1.tenor.com/images/938582dc0c728dd274bbc56a49b886de/tenor.gif" width="75%"></a></p>
 
-# Three Arena
+## Three Arena
+Join now on <strong> *www.shootyourfriends.com* </strong>
 
-An arena shooter created in three.js. Shoot your friends in this simple socket.io multiplayer game.
-
-<strong> Join now at: https://www.shootyourfriends.com/ </strong>
+An arena shooter created in three.js. Shoot your friends in this socket.io multiplayer game.
 
 This game was created using the following technologies:
 
@@ -12,7 +11,7 @@ This game was created using the following technologies:
 -   [Socket.IO](https://socket.io/)
 -   [webpack](https://webpack.js.org/)
 
-# Installation
+## Installation
 
 **Prerequisites**
 
@@ -32,7 +31,7 @@ npm install
 
 ### Run project
 
-```
+```js
 // Start client
 npm run dev
 
@@ -57,16 +56,3 @@ npm run server
 -   [#11 - Environment 2 (New Map)](https://github.com/felixgren/three-arena/pull/11/)
 -   [#12 - Core Features 2 (Respawn, UI, Chat types)](https://github.com/felixgren/three-arena/pull/12/)
 -   [#13 - Core Features 3 (General improvements)](https://github.com/felixgren/three-arena/pull/13/)
-
-# Code Review
-
-1. `Game.js:8,11-12` - Gets imported but isn't used.
-2. `Game.js:82` - console.log() :)
-3. `Game.js:75` - Remove code that isn't in use.
-4. `Game.js` - For better readabilty you can split game.js into multiple files.
-5. `Game.js:423-46` - For better performent we would suggest a switch-statement instead.
-6. `Game.js:` - Existing descriptions could be more informative :)
-7. `Game.js` - Unclear what controls that we are supposed to use. "Open / Close Controls" doesnt work.
-8. Instructions how to play.
-9. We dont really understand the game :)
-10. Gives warnings when running "npm run build".
