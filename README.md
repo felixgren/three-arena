@@ -1,9 +1,11 @@
-<p align="center"><a href="https://youtu.be/8coHwAm-LyI" target="_blank"><img src="https://media1.tenor.com/images/938582dc0c728dd274bbc56a49b886de/tenor.gif" width="75%"></a></p>
+<p align="center"><a href="https://youtu.be/8coHwAm-LyI" target="_blank"><img src="https://user-images.githubusercontent.com/33127919/151162659-27c74ceb-8323-48de-a760-cfe0000f8706.png" width="100%"></a></p>
 
 ## Three Arena
 Join now on <strong> *www.shootyourfriends.com* </strong>
 
 An arena shooter created in three.js. Shoot your friends in this socket.io multiplayer game.
+
+It features a vanilla built movement system, collisions (with the help of octrees), chat & shooting. Backend is an express socket.io server which gathers and sends out all player data (movement, directions, chat, rocket fire events) to the clients. The clients then react by generating and updating the players & events, the client is completely trusted. Best part is that it's all in one file... but would be very easy to break out & expand upon if you have some time.
 
 This game was created using the following technologies:
 
