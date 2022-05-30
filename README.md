@@ -1,7 +1,7 @@
 <p align="center"><a href="https://youtu.be/8coHwAm-LyI" target="_blank"><img src="https://user-images.githubusercontent.com/33127919/151162659-27c74ceb-8323-48de-a760-cfe0000f8706.png" width="100%"></a></p>
 
 ## Three Arena
-Join now on <strong> *www.shootyourfriends.com* </strong>
+Join now on <strong> *[three-arena.vercel.app](https://three-arena.vercel.app/)* </strong>
 
 An arena shooter created in three.js. Shoot your friends in this socket.io multiplayer game.
 
