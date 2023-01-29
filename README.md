@@ -3,9 +3,11 @@
 ## Three Arena
 Join now on <strong> *[three-arena.vercel.app](https://three-arena.vercel.app/)* </strong>
 
-An arena shooter created in three.js. Shoot your friends in this socket.io multiplayer game.
+An arena shooter created in three.js. Shoot your friends in this socket.io multiplayer game. You can open chat by pressing t.
 
 It features a vanilla built movement system, collisions (with the help of octrees), chat & shooting. Backend is an express socket.io server which gathers and sends out all player data (movement, directions, chat, rocket fire events) to the clients. The clients then react by generating and updating the players & events, the client is completely trusted. Best part is that it's all in one file... but would be very easy to break out & expand upon if you have some time.
+
+If you've found this repo valuable, do give it a star.
 
 This game was created using the following technologies:
 
@@ -58,3 +60,4 @@ npm run server
 -   [#11 - Environment 2 (New Map)](https://github.com/felixgren/three-arena/pull/11/)
 -   [#12 - Core Features 2 (Respawn, UI, Chat types)](https://github.com/felixgren/three-arena/pull/12/)
 -   [#13 - Core Features 3 (General improvements)](https://github.com/felixgren/three-arena/pull/13/)
+-   [#14 - Update node server host](https://github.com/felixgren/three-arena/pull/14/)
