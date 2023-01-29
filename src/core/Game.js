@@ -526,7 +526,7 @@ class Game {
 
     initSocket() {
         console.log('init socket');
-        this.socket = io('https://arenaserver.herokuapp.com/');
+        this.socket = io('https://three-arena.fly.dev/');
 
         this.player = {};
         this.players = {};
